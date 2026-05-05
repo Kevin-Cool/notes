@@ -1,0 +1,15 @@
+export enum TaskColor {
+    Primary =       1,
+    Red =           2,
+    Rose =          3,
+    Blue =          4,
+    BlueLight =     5,
+    Green =         6,
+    GreenLight =    7,
+    Yellow =        8,
+    Orange =        9,
+    Purple =        10,
+    Lavender =      11,
+    Gray =          12,
+    Brown =         13,
+}

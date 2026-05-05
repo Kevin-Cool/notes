@@ -1,0 +1,488 @@
+:root {
+    --shadow-soft: 0 2px 8px rgba(194, 120, 145, 0.12);
+    --shadow-soft-hover: 0 4px 10px rgba(194, 120, 145, 0.18);
+    --shadow-bar: 0 6px 18px rgba(191, 112, 138, 0.18);
+    --shadow-float: 0 8px 20px rgba(191, 112, 138, 0.2);
+    --shadow-float-hover: 0 10px 24px rgba(191, 112, 138, 0.24);
+
+    --blur-surface: 10px;
+    --blur-bar: 14px;
+
+    --radius-button: 10px;
+    --radius-float: 14px;
+
+    --titlebar-height: 42px;
+    --side-nav-width: 50px;
+
+    --note-preview-width: 900px;
+    --note-preview-height: 750px;
+    --note-preview-aspect-ratio: 900 / 750;
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+    
+    scrollbar-color: var(--color-border) var(--color-surface);
+}
+
+:root[data-theme="pink"] {
+    --color-bg-top: #fff5f7;
+    --color-bg-mid: #fcecef;
+    --color-bg-bottom: #f6dde3;
+
+    --color-surface: rgba(255, 250, 251, 0.88);
+    --color-surface-strong: rgba(255, 245, 247, 0.82);
+    --color-titlebar-bg: rgba(248, 220, 228, 0.92);
+    --color-titlebar-bg-strong: rgba(248, 220, 228, 0.95);
+
+    --color-nav-bg: rgba(255, 242, 246, 0.78);
+    --color-nav-bg-hover: rgba(255, 235, 241, 0.88);
+
+    --color-text: #7d4b5a;
+    --color-text-muted: #8e5b6d;
+    --color-text-strong: #7c4f5f;
+    --color-title: #9d526c;
+    --color-heading: #b85778;
+    --color-accent: #a94f6e;
+
+    --color-warning: #d85c6f;
+    --color-warning-hover: #c94e61;
+    --color-warning-bg: rgba(216, 92, 111, 0.12);
+    --color-warning-border: #e3a1b0;
+
+    --color-border: #df94a8;
+    --color-border-hover: #e59ab0;
+
+    --color-button-bg: #fff7f9;
+    --color-button-bg-hover: #fdecef;
+
+    --color-editor-link: #a94f6e;
+    --color-editor-link-hover: #913e5b;
+    --color-editor-link-bg: rgba(169, 79, 110, 0.08);
+
+    /* editor / tiptap */
+    --color-editor-heading-1: #b85778;
+    --color-editor-heading-2: #b35b79;
+    --color-editor-heading-3: #a95b74;
+    --color-editor-heading-4: #9b5a6d;
+
+    --color-editor-list-marker: #b85778;
+    --color-editor-task-check: #a94f6e;
+    --color-editor-blockquote-line: #df94a8;
+
+    /* tasks */
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #d63b53;
+    --color-task-rose: #e07a96;
+
+    --color-task-blue: #3f63d9;
+    --color-task-blue-light: #7ea2ff;
+
+    --color-task-green: #2f9e5f;
+    --color-task-green-light: #6fd19a;
+
+    --color-task-yellow: #d4a017;
+    --color-task-orange: #e67e22;
+
+    --color-task-purple: #7a4fd6;
+    --color-task-lavender: #b59cff;
+
+    --color-task-gray: #7f6f75;
+    --color-task-brown: #9a6b4a;
+
+    --color-calendar-outside-month-bg: rgba(0, 0, 0, 0.02);
+    --color-calendar-outside-month-text: rgba(125, 75, 90, 0.45);
+    --color-calendar-outside-month-border: rgba(223, 148, 168, 0.35);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+}
+
+:root[data-theme="yellow"] {
+    --color-bg-top: #fffdf4;
+    --color-bg-mid: #fff7dc;
+    --color-bg-bottom: #f8ecc3;
+
+    --color-surface: rgba(255, 253, 245, 0.9);
+    --color-surface-strong: rgba(255, 249, 232, 0.84);
+    --color-titlebar-bg: rgba(255, 250, 235, 0.93);
+    --color-titlebar-bg-strong: rgba(255, 250, 235, 0.97);
+
+    --color-nav-bg: rgba(255, 249, 225, 0.8);
+    --color-nav-bg-hover: rgba(255, 244, 200, 0.88);
+
+    --color-text: #6d624f;
+    --color-text-muted: #87785f;
+    --color-text-strong: #5c513f;
+    --color-title: #a68445;
+    --color-heading: #c29538;
+    --color-accent: #b7852e;
+
+    --color-warning: #e5484d;
+    /* brighter red */
+    --color-warning-hover: #d63c42;
+    /* slightly deeper on hover */
+    --color-warning-bg: rgba(229, 72, 77, 0.14);
+    --color-warning-border: #f1a3a6;
+    /* softer but still red-tinted */
+
+    --color-border: #eadba8;
+    --color-border-hover: #efe3bb;
+
+    --color-button-bg: #fffbee;
+    --color-button-bg-hover: #fff4cf;
+
+    --color-editor-link: #b7852e;
+    --color-editor-link-hover: #9f7126;
+    --color-editor-link-bg: rgba(183, 133, 46, 0.08);
+
+    /* editor / tiptap */
+    --color-editor-heading-1: #c29538;
+    --color-editor-heading-2: #b98c37;
+    --color-editor-heading-3: #a98236;
+    --color-editor-heading-4: #977737;
+
+    --color-editor-list-marker: #b7852e;
+    --color-editor-task-check: #b7852e;
+    --color-editor-blockquote-line: #eadba8;
+
+    /* tasks */
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #d63b53;
+    --color-task-rose: #e07a96;
+
+    --color-task-blue: #3f63d9;
+    --color-task-blue-light: #7ea2ff;
+
+    --color-task-green: #2f9e5f;
+    --color-task-green-light: #6fd19a;
+
+    --color-task-yellow: #d4a017;
+    --color-task-orange: #e67e22;
+
+    --color-task-purple: #7a4fd6;
+    --color-task-lavender: #b59cff;
+
+    --color-task-gray: #7f6f75;
+    --color-task-brown: #9a6b4a;
+
+    --color-calendar-outside-month-bg: rgba(0, 0, 0, 0.02);
+    --color-calendar-outside-month-text: rgba(109, 98, 79, 0.45);
+    --color-calendar-outside-month-border: rgba(234, 219, 168, 0.4);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+}
+
+:root[data-theme="berry"] {
+    --color-bg-top: #fff4f8;
+    --color-bg-mid: #f9e6ee;
+    --color-bg-bottom: #efd3df;
+
+    --color-surface: rgba(255, 247, 250, 0.9);
+    --color-surface-strong: rgba(252, 236, 242, 0.84);
+    --color-titlebar-bg: rgba(246, 216, 228, 0.93);
+    --color-titlebar-bg-strong: rgba(246, 216, 228, 0.97);
+
+    --color-nav-bg: rgba(252, 235, 243, 0.8);
+    --color-nav-bg-hover: rgba(248, 220, 233, 0.88);
+
+    --color-text: #6a3f52;
+    --color-text-muted: #84566b;
+    --color-text-strong: #5a3446;
+
+    /* shifted more toward red/rose */
+    --color-title: #a23f5f;
+    --color-heading: #b83f63;
+    --color-accent: #a7375f;
+
+    /* keep strong red warnings */
+    --color-warning: #e5484d;
+    --color-warning-hover: #d63c42;
+    --color-warning-bg: rgba(229, 72, 77, 0.14);
+    --color-warning-border: #f1a3a6;
+
+    --color-border: #e09ab0;
+    --color-border-hover: #e8a8bd;
+
+    --color-button-bg: #fff6f9;
+    --color-button-bg-hover: #fbe6ee;
+
+    --color-editor-link: #a7375f;
+    --color-editor-link-hover: #8f2e4f;
+    --color-editor-link-bg: rgba(167, 55, 95, 0.08);
+
+    /* editor / tiptap */
+    --color-editor-heading-1: #b83f63;
+    --color-editor-heading-2: #ab3f67;
+    --color-editor-heading-3: #9f3f6a;
+    --color-editor-heading-4: #8d3d63;
+
+    --color-editor-list-marker: #b83f63;
+    --color-editor-task-check: #a7375f;
+    --color-editor-blockquote-line: #e09ab0;
+
+    /* tasks */
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #d63b53;
+    --color-task-rose: #e07a96;
+
+    --color-task-blue: #3f63d9;
+    --color-task-blue-light: #7ea2ff;
+
+    --color-task-green: #2f9e5f;
+    --color-task-green-light: #6fd19a;
+
+    --color-task-yellow: #d4a017;
+    --color-task-orange: #e67e22;
+
+    --color-task-purple: #7a4fd6;
+    --color-task-lavender: #b59cff;
+
+    --color-task-gray: #7f6f75;
+    --color-task-brown: #9a6b4a;
+
+    --color-calendar-outside-month-bg: rgba(0, 0, 0, 0.02);
+    --color-calendar-outside-month-text: rgba(106, 63, 82, 0.45);
+    --color-calendar-outside-month-border: rgba(224, 154, 176, 0.4);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+}
+
+:root[data-theme="cloud"] {
+    --color-bg-top: #e8f8ff;
+    --color-bg-mid: #d8e9ff;
+    --color-bg-bottom: #c9c6f4;
+
+    --color-surface: rgba(248, 252, 255, 0.9);
+    --color-surface-strong: rgba(232, 242, 255, 0.84);
+    --color-titlebar-bg: rgba(214, 228, 250, 0.93);
+    --color-titlebar-bg-strong: rgba(214, 228, 250, 0.97);
+
+    --color-nav-bg: rgba(226, 239, 255, 0.8);
+    --color-nav-bg-hover: rgba(211, 226, 255, 0.88);
+
+    --color-text: #52668f;
+    --color-text-muted: #687ca4;
+    --color-text-strong: #45577f;
+    --color-title: #6f70b8;
+    --color-heading: #6f83d9;
+    --color-accent: #7b78d6;
+
+    --color-warning: #e5486d;
+    --color-warning-hover: #d63c60;
+    --color-warning-bg: rgba(229, 72, 109, 0.14);
+    --color-warning-border: #f1a3b8;
+
+    --color-border: #aebfeb;
+    --color-border-hover: #bdcafa;
+
+    --color-button-bg: #f7fbff;
+    --color-button-bg-hover: #e8f0ff;
+
+    --color-editor-link: #6f70b8;
+    --color-editor-link-hover: #5d5ca3;
+    --color-editor-link-bg: rgba(111, 112, 184, 0.08);
+
+    /* editor / tiptap */
+    --color-editor-heading-1: #6f83d9;
+    --color-editor-heading-2: #6f79ca;
+    --color-editor-heading-3: #7070b8;
+    --color-editor-heading-4: #67669f;
+
+    --color-editor-list-marker: #6f83d9;
+    --color-editor-task-check: #7b78d6;
+    --color-editor-blockquote-line: #aebfeb;
+
+    /* tasks */
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #d63b53;
+    --color-task-rose: #e07a96;
+
+    --color-task-blue: #3f63d9;
+    --color-task-blue-light: #7ea2ff;
+
+    --color-task-green: #2f9e5f;
+    --color-task-green-light: #6fd19a;
+
+    --color-task-yellow: #d4a017;
+    --color-task-orange: #e67e22;
+
+    --color-task-purple: #7a4fd6;
+    --color-task-lavender: #b59cff;
+
+    --color-task-gray: #6f748f;
+    --color-task-brown: #9a6b4a;
+
+    --color-calendar-outside-month-bg: rgba(0, 0, 0, 0.02);
+    --color-calendar-outside-month-text: rgba(82, 102, 143, 0.45);
+    --color-calendar-outside-month-border: rgba(174, 191, 235, 0.4);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+}
+
+:root[data-theme="rose-dark"] {
+    --color-bg-top: #2a1018;
+    --color-bg-mid: #210c14;
+    --color-bg-bottom: #17080d;
+
+    --color-surface: rgba(42, 18, 28, 0.9);
+    --color-surface-strong: rgba(55, 22, 34, 0.86);
+    --color-titlebar-bg: rgba(49, 18, 29, 0.94);
+    --color-titlebar-bg-strong: rgba(58, 22, 35, 0.97);
+
+    --color-nav-bg: rgba(48, 18, 30, 0.82);
+    --color-nav-bg-hover: rgba(65, 24, 39, 0.9);
+
+    --color-text: #f0c7d1;
+    --color-text-muted: #d9a6b4;
+    --color-text-strong: #ffe0e7;
+    --color-title: #ff9db6;
+    --color-heading: #ff6f96;
+    --color-accent: #e85f86;
+
+    --color-warning: #ff5c6f;
+    --color-warning-hover: #ff7282;
+    --color-warning-bg: rgba(255, 92, 111, 0.16);
+    --color-warning-border: #9f384c;
+
+    --color-border: #7a3148;
+    --color-border-hover: #9b3d5a;
+
+    --color-button-bg: #351522;
+    --color-button-bg-hover: #471c2d;
+
+    --color-editor-link: #ff86a4;
+    --color-editor-link-hover: #ffadc0;
+    --color-editor-link-bg: rgba(255, 134, 164, 0.12);
+
+    /* editor / tiptap */
+    --color-editor-heading-1: #ff7aa0;
+    --color-editor-heading-2: #f06f95;
+    --color-editor-heading-3: #dc6688;
+    --color-editor-heading-4: #c95e7b;
+
+    --color-editor-list-marker: #ff7aa0;
+    --color-editor-task-check: #ff86a4;
+    --color-editor-blockquote-line: #7a3148;
+
+    /* tasks */
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #ff6678;
+    --color-task-rose: #ff8eaa;
+
+    --color-task-blue: #8da2ff;
+    --color-task-blue-light: #b7c5ff;
+
+    --color-task-green: #73d99f;
+    --color-task-green-light: #a5efc2;
+
+    --color-task-yellow: #f1c84b;
+    --color-task-orange: #ff9b52;
+
+    --color-task-purple: #b59cff;
+    --color-task-lavender: #d2c4ff;
+
+    --color-task-gray: #b99da8;
+    --color-task-brown: #c99370;
+
+    --color-calendar-outside-month-bg: rgba(255, 255, 255, 0.03);
+    --color-calendar-outside-month-text: rgba(240, 199, 209, 0.38);
+    --color-calendar-outside-month-border: rgba(122, 49, 72, 0.5);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 18%, var(--color-surface) 82%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 45%, var(--color-border) 55%);
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    background: radial-gradient(circle at top,
+            var(--color-bg-top) 0%,
+            var(--color-bg-mid) 35%,
+            var(--color-bg-bottom) 100%);
+    color: var(--color-text);
+    font-family: "Inter", "Nunito", "Segoe UI", sans-serif;
+    overflow: hidden;
+}
+
+.dialog-backdrop {
+    position: fixed;
+    top: var(--titlebar-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    z-index: 3000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4.5rem 1rem 1rem;
+    background: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(var(--blur-surface));
+    -webkit-backdrop-filter: blur(var(--blur-surface));
+}
+
+.settings-card {
+    max-width: 48rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-float);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.settings-card-header {
+    padding: 1rem 1.1rem 0 1.1rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-strong);
+}
+
+.settings-card-header h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    color: var(--color-title);
+}
+
+.settings-card-header p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.settings-header {
+    margin-bottom: 1.5rem;
+    margin: 0 0 0.5rem;
+    color: var(--color-heading);
+}
+
+.icon-image {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+
+    background-color: var(--color-accent);
+
+    mask: var(--icon-url) no-repeat center;
+    mask-size: contain;
+
+    -webkit-mask: var(--icon-url) no-repeat center;
+    -webkit-mask-size: contain;
+}
+
+.icon-button:hover .icon-image {
+    background-color: var(--color-heading);
+}

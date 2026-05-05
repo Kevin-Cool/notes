@@ -1,0 +1,201 @@
+<script lang="ts">
+    import StartupSettingsCard from "$lib/components/settings/StartupSettingsCard.svelte";
+    import StorageSettingsCard from "$lib/components/settings/StorageSettingsCard.svelte";
+    import ThemeSettingsCard from "$lib/components/settings/ThemeSettingsCard.svelte";
+    import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+
+    type HotkeyInfo = {
+        keys: string;
+        action: string;
+        scope: string;
+    };
+
+    const hotkeys: HotkeyInfo[] = [
+        {
+            keys: "Ctrl + Ctrl",
+            action: "Toggle the custom window bar",
+            scope: "App window",
+        },
+        {
+            keys: "Ctrl / Cmd + Alt + N",
+            action: "Toggle the custom window bar",
+            scope: "Global",
+        },
+        {
+            keys: "Ctrl / Cmd + Alt + Numpad 1",
+            action: "Show or minimize the app",
+            scope: "Global",
+        },
+        {
+            keys: "Ctrl / Cmd + Alt + Numpad 2",
+            action: "Snap the app to the right-most monitor",
+            scope: "Global",
+        },
+    ];
+
+    const appWindow = getCurrentWebviewWindow();
+
+    async function closeProgram(): Promise<void> {
+        await appWindow.close();
+    }
+</script>
+
+<section class="settings-page">
+    <header class="settings-header">
+        <h1>Settings</h1>
+    </header>
+
+    <div class="settings-card">
+        <div class="settings-card-header">
+            <h2>Hotkeys</h2>
+            <p>Shortcuts currently registered by the app.</p>
+        </div>
+
+        <div class="hotkey-list">
+            {#each hotkeys as hotkey}
+                <div class="hotkey-row">
+                    <div class="hotkey-main">
+                        <kbd>{hotkey.keys}</kbd>
+                        <span>{hotkey.scope}</span>
+                    </div>
+
+                    <p>{hotkey.action}</p>
+                </div>
+            {/each}
+        </div>
+    </div>
+
+    <ThemeSettingsCard />
+
+    <StartupSettingsCard />
+
+    <StorageSettingsCard />
+
+    <div class="settings-card danger-card">
+        <div class="settings-card-header">
+            <h2>Program</h2>
+            <p>Exit the app completely.</p>
+        </div>
+
+        <div class="danger-content">
+            <button type="button" class="danger-button" onclick={closeProgram}>
+                Close program
+            </button>
+        </div>
+    </div>
+</section>
+
+<style>
+    .settings-page {
+        min-height: 100%;
+        box-sizing: border-box;
+        padding: 2rem;
+
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+
+        color: var(--color-text-strong);
+    }
+    .settings-page :global(.settings-card) {
+        width: 100%;
+    }
+    .hotkey-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .hotkey-row {
+        display: grid;
+        grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+        gap: 1rem;
+        align-items: center;
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid
+            color-mix(in srgb, var(--color-border) 65%, transparent);
+    }
+
+    .hotkey-row:last-child {
+        border-bottom: none;
+    }
+
+    .hotkey-main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    kbd {
+        width: fit-content;
+        padding: 0.35rem 0.55rem;
+        border: 1px solid var(--color-border);
+        border-radius: 0.55rem;
+        background: var(--color-button-bg);
+        color: var(--color-accent);
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .hotkey-main span {
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+    }
+
+    .hotkey-row p {
+        margin: 0;
+        color: var(--color-text-strong);
+        line-height: 1.45;
+    }
+
+    .danger-card {
+        margin-top: 1rem;
+    }
+
+    .danger-content {
+        padding: 1rem 1.1rem;
+    }
+
+    .danger-button {
+        border: 1px solid var(--color-task-red);
+        border-radius: var(--radius-button);
+        background: var(--color-button-bg);
+        color: var(--color-task-red);
+        cursor: pointer;
+        padding: 0.55rem 0.8rem;
+        font-family: inherit;
+        font-weight: 700;
+        box-shadow: var(--shadow-soft);
+        transition:
+            background 140ms ease,
+            transform 140ms ease,
+            box-shadow 140ms ease;
+    }
+
+    .danger-button:hover {
+        background: color-mix(
+            in srgb,
+            var(--color-task-red) 10%,
+            var(--color-button-bg)
+        );
+        box-shadow: var(--shadow-soft-hover);
+        transform: translateY(-1px);
+    }
+
+    .danger-button:active {
+        transform: scale(0.97);
+    }
+
+    @media (max-width: 42rem) {
+        .settings-page {
+            padding: 1rem;
+        }
+
+        .hotkey-row {
+            grid-template-columns: 1fr;
+            gap: 0.6rem;
+        }
+    }
+</style>
