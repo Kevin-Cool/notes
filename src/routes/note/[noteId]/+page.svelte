@@ -6,7 +6,7 @@
 	import { getNoteById, upsertNote } from "$lib/services/note-service";
 	import { extractNoteNameFromHtml } from "$lib/utils/note-name";
 	import { beforeNavigate } from "$app/navigation";
-		
+
 	import hljs from "highlight.js";
 	import "highlight.js/styles/atom-one-dark-reasonable.css";
 
@@ -102,7 +102,6 @@
 	}
 
 	function buildPreviewHtml(content: string): string {
-	
 		return `
 		<div class="tiptap-editor note-preview-content">
 			${content}
@@ -129,7 +128,6 @@
 		codeElements.forEach((codeElement: HTMLElement): void => {
 			hljs.highlightElement(codeElement);
 		});
-
 
 		hostElement.innerHTML = "";
 		hostElement.appendChild(previewContainer);
@@ -208,7 +206,6 @@
 		noteId: string,
 		contentSnapshot: string,
 	): Promise<void> {
-	
 		if (!hasLoaded) {
 			return;
 		}
@@ -359,6 +356,38 @@
 		schedulePreviewSave();
 	}
 
+	async function handleRenameNote(nextName: string): Promise<void> {
+		if (!loadedNoteId) {
+			return;
+		}
+
+		const trimmedName: string = nextName.trim();
+
+		if (trimmedName.length === 0) {
+			return;
+		}
+
+		const nowIsoString: string = new Date().toISOString();
+
+		const note: NoteRecord = {
+			id: loadedNoteId,
+			name: trimmedName,
+			content: currentContent,
+			thumbnail: null,
+			created_at: createdAt || nowIsoString,
+			last_updated_at: nowIsoString,
+		};
+
+		await upsertNote(note);
+
+		noteName = trimmedName;
+		lastSavedContent = currentContent;
+		lastUpdatedAt = nowIsoString;
+		isNew = false;
+
+		showTemporarySavedState();
+	}
+
 	$effect((): void => {
 		const nextNoteId: string = data.noteId;
 
@@ -428,7 +457,9 @@
 		<NoteEditor
 			noteId={data.noteId}
 			{initialContent}
+			{noteName}
 			onContentChange={handleContentChange}
+			onRenameNote={handleRenameNote}
 		/>
 	{/key}
 {/if}

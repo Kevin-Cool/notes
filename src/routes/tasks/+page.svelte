@@ -338,7 +338,7 @@
         if (selectedTask === null || !selectedTask.id) {
             return;
         }
-
+        
         await deleteCalendarTask(selectedTask.id);
 
         tasks = tasks.filter(

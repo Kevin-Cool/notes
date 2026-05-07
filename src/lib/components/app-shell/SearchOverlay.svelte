@@ -16,6 +16,7 @@
     let isLoading: boolean = $state(false);
     let errorMessage: string | null = $state(null);
     let searchInputElement: HTMLInputElement | null = $state(null);
+    let backdropPointerStartedOnBackdrop: boolean = $state(false);
 
     let hasLoadedForCurrentOpen: boolean = false;
 
@@ -125,7 +126,20 @@
 {#if isOpen}
     <div
         class="dialog-backdrop"
-        onclick={close}
+        onmousedown={(event: MouseEvent): void => {
+            backdropPointerStartedOnBackdrop =
+                event.target === event.currentTarget;
+        }}
+        onclick={(event: MouseEvent): void => {
+            const endedOnBackdrop: boolean =
+                event.target === event.currentTarget;
+
+            if (backdropPointerStartedOnBackdrop && endedOnBackdrop) {
+                close();
+            }
+
+            backdropPointerStartedOnBackdrop = false;
+        }}
         onkeydown={(event: KeyboardEvent): void => {
             if (event.key === "Escape") {
                 event.preventDefault();
@@ -141,13 +155,6 @@
             aria-modal="true"
             aria-label="Search notes"
             tabindex="-1"
-            onclick={(event: MouseEvent): void => event.stopPropagation()}
-			onkeydown={(event: KeyboardEvent): void => {
-				if (event.key === "Enter") {
-					event.preventDefault();
-					close();
-				}
-			}}
         >
             <div class="search-overlay-header">
                 <input

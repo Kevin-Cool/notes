@@ -37,12 +37,16 @@
 
     let {
         noteId,
+        noteName = "",
         initialContent = null,
         onContentChange,
+        onRenameNote,
     }: {
         noteId: string;
+        noteName?: string;
         initialContent?: string | null;
         onContentChange?: (content: string) => void;
+        onRenameNote?: (name: string) => void | Promise<void>;
     } = $props();
 
     let editorElement: HTMLDivElement | null = null;
@@ -66,6 +70,57 @@
     let isLinkDialogOpen: boolean = $state(false);
     let linkDialogType: LinkType = $state("external");
     let linkDialogValue: string = $state("");
+
+    let isRenameDialogOpen: boolean = $state(false);
+    let renameInput: string = $state("");
+    let renameError: string = $state("");
+    let isRenaming: boolean = $state(false);
+
+    function openRenameDialog(): void {
+        renameInput = noteName.trim().length > 0 ? noteName : "Untitled note";
+        renameError = "";
+        isRenameDialogOpen = true;
+    }
+
+    function closeRenameDialog(): void {
+        if (isRenaming) return;
+
+        isRenameDialogOpen = false;
+        renameInput = "";
+        renameError = "";
+    }
+
+    async function submitRename(): Promise<void> {
+        const nextName: string = renameInput.trim();
+
+        renameError = "";
+
+        if (nextName.length === 0) {
+            renameError = "Title is required.";
+            return;
+        }
+
+        isRenaming = true;
+
+        try {
+            await onRenameNote?.(nextName);
+
+            isRenaming = false;
+            closeRenameDialog();
+        } catch {
+            renameError = "Failed to rename note.";
+        } finally {
+            isRenaming = false;
+        }
+    }
+
+    function handleRenameDialogBackdropClick(event: MouseEvent): void {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
+        closeRenameDialog();
+    }
 
     $effect((): void => {
         if (!editor) return;
@@ -651,6 +706,22 @@
     }
 
     onMount((): (() => void) => {
+        const resizeObserver: ResizeObserver = new ResizeObserver((): void => {
+            measureToolbarLayout();
+        });
+
+        if (toolbarElement) {
+            resizeObserver.observe(toolbarElement);
+        }
+
+        if (toolbarInnerElement) {
+            resizeObserver.observe(toolbarInnerElement);
+        }
+
+        queueMicrotask((): void => {
+            measureToolbarLayout();
+        });
+
         const handleKeyDown = (event: KeyboardEvent): void => {
             updateModifierState(event);
         };
@@ -830,6 +901,7 @@
             window.removeEventListener("keydown", handleKeyDown);
             window.removeEventListener("keyup", handleKeyUp);
             window.removeEventListener("blur", handleWindowBlur);
+            resizeObserver.disconnect();
             editor?.destroy();
         };
     });
@@ -946,6 +1018,51 @@
     function getIconStyle(icon: string): IconStyle {
         return `--icon-url: url("${icon}")`;
     }
+
+    let renameBackdropPointerStarted: boolean = false;
+    let toolbarElement: HTMLDivElement | null = null;
+    let toolbarInnerElement: HTMLDivElement | null = null;
+
+    let floatingTitleWidth: number = $state(192);
+    let showInlineRenameButton: boolean = $state(false);
+
+    const toolbarEdgePadding: number = 12;
+    const titleToolbarGap: number = 12;
+    const maxFloatingTitleWidth: number = 192;
+    const minFloatingTitleWidth: number = 96;
+
+    function measureToolbarLayout(): void {
+        if (!toolbarElement || !toolbarInnerElement) return;
+
+        const toolbarWidth: number = toolbarElement.clientWidth;
+
+        const toolbarButtonsWidth: number = Array.from(
+            toolbarInnerElement.children,
+        ).reduce((totalWidth: number, child: Element): number => {
+            const element: HTMLElement = child as HTMLElement;
+            return totalWidth + element.offsetWidth;
+        }, 0);
+
+        const buttonGapTotal: number =
+            Math.max(toolbarInnerElement.children.length - 1, 0) * 5.6;
+
+        const centeredToolbarWidth: number =
+            toolbarButtonsWidth + buttonGapTotal;
+
+        const freeLeftSpace: number =
+            (toolbarWidth - centeredToolbarWidth) / 2 -
+            toolbarEdgePadding -
+            titleToolbarGap;
+
+        if (freeLeftSpace < minFloatingTitleWidth) {
+            showInlineRenameButton = true;
+            floatingTitleWidth = 0;
+            return;
+        }
+
+        showInlineRenameButton = false;
+        floatingTitleWidth = Math.min(freeLeftSpace, maxFloatingTitleWidth);
+    }
 </script>
 
 <svelte:head>
@@ -953,8 +1070,38 @@
 </svelte:head>
 
 <div class="page">
-    <div class="toolbar">
-        <div class="toolbar-inner">
+    <div class="toolbar" bind:this={toolbarElement}>
+        {#if !showInlineRenameButton}
+            <button
+                type="button"
+                class="note-title-fake-input"
+                style:width={`${floatingTitleWidth}px`}
+                onclick={openRenameDialog}
+                aria-label="Edit note title"
+                title="Edit note title"
+            >
+                <span class="note-title-text">
+                    {noteName.trim().length > 0 ? noteName : "Untitled note"}
+                </span>
+
+                <span class="note-title-icon" aria-hidden="true">✎</span>
+            </button>
+        {/if}
+        <div class="toolbar-inner" bind:this={toolbarInnerElement}>
+            {#if showInlineRenameButton}
+                <button
+                    type="button"
+                    class="icon-button inline-rename-button"
+                    onclick={openRenameDialog}
+                    aria-label="Edit note title"
+                    title="Edit note title"
+                >
+                    <span class="note-title-icon" aria-hidden="true">✎</span>
+                </button>
+
+                <div class="divider"></div>
+            {/if}
+
             <div class="menu-wrap">
                 <button
                     type="button"
@@ -1328,6 +1475,76 @@
             onRemove={removeLinkFromDialog}
         />
     {/if}
+
+    {#if isRenameDialogOpen}
+        <div
+            class="dialog-backdrop"
+            role="presentation"
+            onmousedown={(event: MouseEvent): void => {
+                renameBackdropPointerStarted =
+                    event.target === event.currentTarget;
+            }}
+            onclick={(event: MouseEvent): void => {
+                const endedOnBackdrop: boolean =
+                    event.target === event.currentTarget;
+
+                if (renameBackdropPointerStarted && endedOnBackdrop) {
+                    closeRenameDialog();
+                }
+
+                renameBackdropPointerStarted = false;
+            }}
+        >
+            <div
+                class="rename-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rename-dialog-title"
+            >
+                <h2 id="rename-dialog-title" class="rename-dialog-title">
+                    Edit note title
+                </h2>
+
+                <label class="rename-field">
+                    <span>Title</span>
+
+                    <input
+                        class="rename-input"
+                        type="text"
+                        bind:value={renameInput}
+                        maxlength="120"
+                        placeholder="Note title"
+                        onkeydown={(event: KeyboardEvent): void => {
+                            if (event.key === "Enter") {
+                                event.preventDefault();
+                                void submitRename();
+                            }
+
+                            if (event.key === "Escape") {
+                                event.preventDefault();
+                                closeRenameDialog();
+                            }
+                        }}
+                    />
+                </label>
+
+                {#if renameError}
+                    <span class="rename-error">{renameError}</span>
+                {/if}
+
+                <div class="rename-actions">
+                    <button
+                        type="button"
+                        class="rename-primary-button"
+                        onclick={() => void submitRename()}
+                        disabled={isRenaming}
+                    >
+                        {isRenaming ? "Saving..." : "Save"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -1520,9 +1737,13 @@
         position: sticky;
         top: 0;
         z-index: 30;
+
+        position: relative;
         display: flex;
         justify-content: center;
-        padding: 0.5rem 0;
+        align-items: flex-start;
+
+        padding: 0.5rem 0.75rem;
         border-bottom: 1px solid var(--color-border);
         background: var(--color-surface);
         backdrop-filter: blur(var(--blur-bar));
@@ -1534,7 +1755,9 @@
         justify-content: center;
         gap: 0.35rem;
         flex-wrap: wrap;
-        position: relative;
+
+        max-width: 100%;
+        min-width: 0;
     }
 
     .menu-wrap {
@@ -1971,5 +2194,145 @@
     button.active .icon-image {
         background-color: var(--color-accent);
     }
-    
+
+    .note-title-fake-input {
+        position: absolute;
+        left: 0.75rem;
+        top: 0.5rem;
+        z-index: 2;
+
+        max-width: 12rem;
+        min-width: 6rem;
+
+        overflow: hidden;
+        justify-content: space-between;
+        padding: 0.34rem 0.65rem;
+    }
+
+    .note-title-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .note-title-icon {
+        flex: 0 0 auto;
+        line-height: 1;
+    }
+
+    .inline-rename-button {
+        width: 2rem;
+        min-width: 2rem;
+        padding: 0;
+        justify-content: center;
+    }
+    .dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 1rem;
+        background: rgb(0 0 0 / 0.32);
+    }
+
+    .rename-dialog {
+        width: min(100%, 24rem);
+        border: 1px solid var(--color-border);
+        border-radius: 1rem;
+        background: var(--color-surface);
+        box-shadow: var(--shadow-soft-hover);
+        padding: 1rem;
+        box-sizing: border-box;
+    }
+
+    .rename-dialog-title {
+        margin: 0 0 1rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-title);
+    }
+
+    .rename-field {
+        display: grid;
+        gap: 0.35rem;
+    }
+
+    .rename-field span {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+    }
+
+    .rename-input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--color-border);
+        border-radius: 0.75rem;
+        background: var(--color-surface);
+        color: var(--color-text);
+        padding: 0.7rem 0.85rem;
+        font: inherit;
+    }
+
+    .rename-error {
+        display: block;
+        margin-top: 0.5rem;
+        font-size: 0.78rem;
+        color: var(--color-danger, #c62828);
+    }
+
+    .rename-actions {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .rename-primary-button {
+        height: 2.25rem;
+    }
+
+    .rename-primary-button {
+        border-color: var(--color-accent);
+        background: var(--color-accent);
+        color: white;
+    }
+
+    .rename-primary-button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+    @media (max-width: 48rem) {
+        .toolbar {
+            padding-inline: 0.5rem;
+        }
+
+        .toolbar-inner {
+            padding-inline: 2.5rem;
+        }
+
+        .note-title-fake-input {
+            left: 0.5rem;
+            width: 2rem;
+            min-width: 2rem;
+            max-width: 2rem;
+            padding: 0;
+            justify-content: center;
+        }
+
+        .note-title-text {
+            display: none;
+        }
+
+        .note-title-icon {
+            opacity: 1;
+            margin: 0;
+        }
+    }
 </style>

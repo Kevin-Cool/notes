@@ -57,6 +57,8 @@
     let durationInput: string = $state("1:00");
     let isEditingDuration: boolean = $state(false);
 
+    let backdropPointerStartedOnBackdrop: boolean = $state(false);
+
     function handleDurationFocus(): void {
         isEditingDuration = true;
     }
@@ -167,6 +169,20 @@
         }
 
         return hours * 60 + minutes;
+    }
+
+    function handleBackdropMouseDown(event: MouseEvent): void {
+        backdropPointerStartedOnBackdrop = event.target === event.currentTarget;
+    }
+
+    function handleBackdropClick(event: MouseEvent): void {
+        const endedOnBackdrop: boolean = event.target === event.currentTarget;
+
+        if (backdropPointerStartedOnBackdrop && endedOnBackdrop) {
+            onClose?.();
+        }
+
+        backdropPointerStartedOnBackdrop = false;
     }
 
     function applyDurationFromDates(): void {
@@ -397,14 +413,6 @@
         }
     }
 
-    function handleBackdropClick(event: MouseEvent): void {
-        if (event.target !== event.currentTarget) {
-            return;
-        }
-
-        onClose?.();
-    }
-
     function handleGlobalKeydown(event: KeyboardEvent): void {
         if (!isOpen) return;
 
@@ -489,6 +497,7 @@
     <div
         class="dialog-backdrop"
         role="presentation"
+        onmousedown={handleBackdropMouseDown}
         onclick={handleBackdropClick}
     >
         <div
