@@ -36,7 +36,7 @@ const shortcuts: ShortcutDefinition[] = [
 		},
 	},
 	{
-		key: "CommandOrControl+Alt+1",
+		key: "CommandOrControl+Shift+1",
 		handler: (event: ShortcutEvent): void => {
 			if (event.state === "Pressed") {
 				void toggleOpenOrMinimize();
@@ -52,7 +52,7 @@ const shortcuts: ShortcutDefinition[] = [
 		},
 	},
 	{
-		key: "CommandOrControl+Alt+2",
+		key: "CommandOrControl+Shift+2",
 		handler: (event: ShortcutEvent): void => {
 			if (event.state === "Pressed") {
 				void snapToRightMostMonitorTopLeft();

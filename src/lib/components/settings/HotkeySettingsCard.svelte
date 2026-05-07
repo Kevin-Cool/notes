@@ -17,12 +17,12 @@
             scope: "Global",
         },
         {
-            keys: ["Ctrl / Cmd + Alt + 1", "Ctrl / Cmd + Alt + Numpad 1"],
+            keys: ["Ctrl / Cmd + Shift + 1", "Ctrl / Cmd + Alt + Numpad 1"],
             action: "Show or minimize the app",
             scope: "Global",
         },
         {
-            keys: ["Ctrl / Cmd + Alt + 2", "Ctrl / Cmd + Alt + Numpad 2"],
+            keys: ["Ctrl / Cmd + Shift + 2", "Ctrl / Cmd + Alt + Numpad 2"],
             action: "Snap the app to the right-most monitor",
             scope: "Global",
         },
