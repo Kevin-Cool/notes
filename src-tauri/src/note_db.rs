@@ -272,7 +272,6 @@ pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_note(app: AppHandle, note_id: String) -> Result<(), String> {
-    println!("delete_note called for note_id={note_id}");
 
     let connection: Connection = open_connection(&app)?;
 
