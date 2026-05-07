@@ -111,40 +111,38 @@
     --color-nav-bg: rgba(255, 249, 225, 0.8);
     --color-nav-bg-hover: rgba(255, 244, 200, 0.88);
 
-    --color-text: #6d624f;
-    --color-text-muted: #87785f;
-    --color-text-strong: #5c513f;
-    --color-title: #a68445;
-    --color-heading: #c29538;
-    --color-accent: #b7852e;
+    --color-text: #514735;
+    --color-text-muted: #71634b;
+    --color-text-strong: #403728;
+    
+    --color-title: #8f6720;
+    --color-heading: #a87312;
+    --color-accent: #9a6818;
 
     --color-warning: #e5484d;
-    /* brighter red */
     --color-warning-hover: #d63c42;
-    /* slightly deeper on hover */
     --color-warning-bg: rgba(229, 72, 77, 0.14);
     --color-warning-border: #f1a3a6;
-    /* softer but still red-tinted */
 
-    --color-border: #eadba8;
-    --color-border-hover: #efe3bb;
+    --color-border: #d9c278;
+    --color-border-hover: #c8aa55;
 
     --color-button-bg: #fffbee;
-    --color-button-bg-hover: #fff4cf;
+    --color-button-bg-hover: #fff0bd;
 
-    --color-editor-link: #b7852e;
-    --color-editor-link-hover: #9f7126;
-    --color-editor-link-bg: rgba(183, 133, 46, 0.08);
+    --color-editor-link: #9a6818;
+    --color-editor-link-hover: #7f5311;
+    --color-editor-link-bg: rgba(154, 104, 24, 0.1);
 
     /* editor / tiptap */
-    --color-editor-heading-1: #c29538;
-    --color-editor-heading-2: #b98c37;
-    --color-editor-heading-3: #a98236;
-    --color-editor-heading-4: #977737;
+    --color-editor-heading-1: #a87312;
+    --color-editor-heading-2: #966817;
+    --color-editor-heading-3: #855f1d;
+    --color-editor-heading-4: #735623;
 
-    --color-editor-list-marker: #b7852e;
-    --color-editor-task-check: #b7852e;
-    --color-editor-blockquote-line: #eadba8;
+    --color-editor-list-marker: #9a6818;
+    --color-editor-task-check: #9a6818;
+    --color-editor-blockquote-line: #d9c278;
 
     /* tasks */
     --color-task-primary: var(--color-accent);
@@ -176,58 +174,56 @@
 }
 
 :root[data-theme="berry"] {
-    --color-bg-top: #fff4f8;
-    --color-bg-mid: #f9e6ee;
-    --color-bg-bottom: #efd3df;
+    --color-bg-top: #fff3f3;
+    --color-bg-mid: #f8dfdf;
+    --color-bg-bottom: #edc6c6;
 
-    --color-surface: rgba(255, 247, 250, 0.9);
-    --color-surface-strong: rgba(252, 236, 242, 0.84);
-    --color-titlebar-bg: rgba(246, 216, 228, 0.93);
-    --color-titlebar-bg-strong: rgba(246, 216, 228, 0.97);
+    --color-surface: rgba(255, 246, 246, 0.9);
+    --color-surface-strong: rgba(252, 232, 232, 0.84);
+    --color-titlebar-bg: rgba(245, 210, 210, 0.93);
+    --color-titlebar-bg-strong: rgba(245, 210, 210, 0.97);
 
-    --color-nav-bg: rgba(252, 235, 243, 0.8);
-    --color-nav-bg-hover: rgba(248, 220, 233, 0.88);
+    --color-nav-bg: rgba(252, 232, 232, 0.8);
+    --color-nav-bg-hover: rgba(248, 214, 214, 0.88);
 
-    --color-text: #6a3f52;
-    --color-text-muted: #84566b;
-    --color-text-strong: #5a3446;
+    --color-text: #663f3f;
+    --color-text-muted: #825858;
+    --color-text-strong: #573232;
 
-    /* shifted more toward red/rose */
-    --color-title: #a23f5f;
-    --color-heading: #b83f63;
-    --color-accent: #a7375f;
+    --color-title: #a33a3a;
+    --color-heading: #b83232;
+    --color-accent: #a92f2f;
 
-    /* keep strong red warnings */
     --color-warning: #e5484d;
     --color-warning-hover: #d63c42;
     --color-warning-bg: rgba(229, 72, 77, 0.14);
     --color-warning-border: #f1a3a6;
 
-    --color-border: #e09ab0;
-    --color-border-hover: #e8a8bd;
+    --color-border: #df9999;
+    --color-border-hover: #e8a6a6;
 
-    --color-button-bg: #fff6f9;
-    --color-button-bg-hover: #fbe6ee;
+    --color-button-bg: #fff5f5;
+    --color-button-bg-hover: #fbe3e3;
 
-    --color-editor-link: #a7375f;
-    --color-editor-link-hover: #8f2e4f;
-    --color-editor-link-bg: rgba(167, 55, 95, 0.08);
+    --color-editor-link: #a92f2f;
+    --color-editor-link-hover: #8f2929;
+    --color-editor-link-bg: rgba(169, 47, 47, 0.08);
 
     /* editor / tiptap */
-    --color-editor-heading-1: #b83f63;
-    --color-editor-heading-2: #ab3f67;
-    --color-editor-heading-3: #9f3f6a;
-    --color-editor-heading-4: #8d3d63;
+    --color-editor-heading-1: #b83232;
+    --color-editor-heading-2: #aa3434;
+    --color-editor-heading-3: #9d3838;
+    --color-editor-heading-4: #8c3a3a;
 
-    --color-editor-list-marker: #b83f63;
-    --color-editor-task-check: #a7375f;
-    --color-editor-blockquote-line: #e09ab0;
+    --color-editor-list-marker: #b83232;
+    --color-editor-task-check: #a92f2f;
+    --color-editor-blockquote-line: #df9999;
 
     /* tasks */
     --color-task-primary: var(--color-accent);
 
-    --color-task-red: #d63b53;
-    --color-task-rose: #e07a96;
+    --color-task-red: #d63b3b;
+    --color-task-rose: #e07878;
 
     --color-task-blue: #3f63d9;
     --color-task-blue-light: #7ea2ff;
@@ -241,12 +237,12 @@
     --color-task-purple: #7a4fd6;
     --color-task-lavender: #b59cff;
 
-    --color-task-gray: #7f6f75;
+    --color-task-gray: #7f6f6f;
     --color-task-brown: #9a6b4a;
 
     --color-calendar-outside-month-bg: rgba(0, 0, 0, 0.02);
-    --color-calendar-outside-month-text: rgba(106, 63, 82, 0.45);
-    --color-calendar-outside-month-border: rgba(224, 154, 176, 0.4);
+    --color-calendar-outside-month-text: rgba(102, 63, 63, 0.45);
+    --color-calendar-outside-month-border: rgba(223, 153, 153, 0.4);
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
@@ -395,6 +391,78 @@
     --color-calendar-outside-month-bg: rgba(255, 255, 255, 0.03);
     --color-calendar-outside-month-text: rgba(240, 199, 209, 0.38);
     --color-calendar-outside-month-border: rgba(122, 49, 72, 0.5);
+
+    --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 18%, var(--color-surface) 82%);
+    --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 45%, var(--color-border) 55%);
+}
+
+:root[data-theme="cloud-dark"] {
+    --color-bg-top: #111827;
+    --color-bg-mid: #131a33;
+    --color-bg-bottom: #19142f;
+
+    --color-surface: rgba(24, 32, 54, 0.9);
+    --color-surface-strong: rgba(31, 40, 68, 0.86);
+    --color-titlebar-bg: rgba(24, 31, 55, 0.94);
+    --color-titlebar-bg-strong: rgba(30, 38, 68, 0.97);
+
+    --color-nav-bg: rgba(25, 34, 62, 0.82);
+    --color-nav-bg-hover: rgba(36, 48, 86, 0.9);
+
+    --color-text: #dbe7ff;
+    --color-text-muted: #aebee6;
+    --color-text-strong: #f2f6ff;
+    --color-title: #b7b8ff;
+    --color-heading: #91a7ff;
+    --color-accent: #9b9aff;
+
+    --color-warning: #ff6b8a;
+    --color-warning-hover: #ff829b;
+    --color-warning-bg: rgba(255, 107, 138, 0.16);
+    --color-warning-border: #9f4058;
+
+    --color-border: #3e4f82;
+    --color-border-hover: #5c70ad;
+
+    --color-button-bg: #1c2747;
+    --color-button-bg-hover: #283764;
+
+    --color-editor-link: #aeb8ff;
+    --color-editor-link-hover: #ccd2ff;
+    --color-editor-link-bg: rgba(174, 184, 255, 0.12);
+
+    --color-editor-heading-1: #91a7ff;
+    --color-editor-heading-2: #9b9aff;
+    --color-editor-heading-3: #aaa0f5;
+    --color-editor-heading-4: #b3a7e8;
+
+    --color-editor-list-marker: #91a7ff;
+    --color-editor-task-check: #9b9aff;
+    --color-editor-blockquote-line: #3e4f82;
+
+    --color-task-primary: var(--color-accent);
+
+    --color-task-red: #ff6678;
+    --color-task-rose: #ff8eaa;
+
+    --color-task-blue: #8da2ff;
+    --color-task-blue-light: #b7c5ff;
+
+    --color-task-green: #73d99f;
+    --color-task-green-light: #a5efc2;
+
+    --color-task-yellow: #f1c84b;
+    --color-task-orange: #ff9b52;
+
+    --color-task-purple: #b59cff;
+    --color-task-lavender: #d2c4ff;
+
+    --color-task-gray: #a8b2d4;
+    --color-task-brown: #c99370;
+
+    --color-calendar-outside-month-bg: rgba(255, 255, 255, 0.03);
+    --color-calendar-outside-month-text: rgba(219, 231, 255, 0.38);
+    --color-calendar-outside-month-border: rgba(62, 79, 130, 0.55);
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 18%, var(--color-surface) 82%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 45%, var(--color-border) 55%);

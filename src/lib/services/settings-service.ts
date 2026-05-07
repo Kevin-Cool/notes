@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { enable, isEnabled } from "@tauri-apps/plugin-autostart";
 
-export type ThemeName = "pink" | "yellow" | "berry" | "cloud" | "rose-dark";
+export type ThemeName = "pink" | "yellow" | "berry" | "cloud" | "rose-dark" | "cloud-dark";
 
 export interface AppSettingRecord {
     key: string;
@@ -64,5 +64,6 @@ function isThemeName(value: string | undefined): value is ThemeName {
         || value === "yellow"
         || value === "berry"
         || value === "cloud"
-        || value === "rose-dark";
+        || value === "rose-dark"
+        || value === "cloud-dark";
 }

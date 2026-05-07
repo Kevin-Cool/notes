@@ -1,7 +1,13 @@
 <script lang="ts">
     import { getSavedTheme, saveTheme } from "$lib/services/settings-service";
 
-    type ThemeName = "pink" | "yellow" | "berry" | "cloud" | "rose-dark";
+    type ThemeName =
+        | "pink"
+        | "yellow"
+        | "berry"
+        | "cloud"
+        | "rose-dark"
+        | "cloud-dark";
     type ThemeMode = "light" | "dark";
 
     type ThemeOption = {
@@ -54,6 +60,14 @@
             swatch: "#2a1018",
             swatchText: "#ff9db6",
         },
+        {
+            name: "cloud-dark",
+            label: "Midnight Cloud",
+            description: "Dark blue with lavender tones.",
+            mode: "dark",
+            swatch: "#131a33",
+            swatchText: "#b7b8ff",
+        },
     ];
 
     let selectedTheme: ThemeName = $state("pink");
@@ -71,7 +85,8 @@
             value === "yellow" ||
             value === "berry" ||
             value === "cloud" ||
-            value === "rose-dark"
+            value === "rose-dark" ||
+            value === "cloud-dark"
         );
     }
 
@@ -109,7 +124,7 @@
     $effect((): void => {
         void loadSavedTheme();
     });
-    
+
     $effect((): void => {
         const currentTheme: string | undefined =
             document.documentElement.dataset.theme;
