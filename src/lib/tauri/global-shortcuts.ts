@@ -36,7 +36,23 @@ const shortcuts: ShortcutDefinition[] = [
 		},
 	},
 	{
+		key: "CommandOrControl+Alt+1",
+		handler: (event: ShortcutEvent): void => {
+			if (event.state === "Pressed") {
+				void toggleOpenOrMinimize();
+			}
+		},
+	},
+	{
 		key: "CommandOrControl+Alt+Numpad2",
+		handler: (event: ShortcutEvent): void => {
+			if (event.state === "Pressed") {
+				void snapToRightMostMonitorTopLeft();
+			}
+		},
+	},
+	{
+		key: "CommandOrControl+Alt+2",
 		handler: (event: ShortcutEvent): void => {
 			if (event.state === "Pressed") {
 				void snapToRightMostMonitorTopLeft();

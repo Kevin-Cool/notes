@@ -790,7 +790,6 @@
                                     .replace("note://", "")
                                     .trim();
 
-                                console.log(noteID);
                                 if (noteID.length > 0) {
                                     void goto(`/note/${noteID}`);
                                 }
