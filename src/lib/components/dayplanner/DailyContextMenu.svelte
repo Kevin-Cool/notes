@@ -1,27 +1,38 @@
 <script lang="ts">
     import { tick } from "svelte";
-    import type { CalendarTask } from "$lib/types/tasks/calendar-task";
-    import type { TaskColor } from "$lib/types/tasks/task-color";
-    import type { TaskContextMenuState } from "$lib/types/tasks/task-context-menu";
+
+    import type { DayplannerDaily } from "$lib/types/dayplanner/dayplanner-daily";
     import { uiState } from "$lib/state/ui.svelte";
+
+    export type DailyContextMenuState =
+        | {
+              mode: "empty";
+              x: number;
+              y: number;
+          }
+        | {
+              mode: "daily";
+              x: number;
+              y: number;
+              daily: DayplannerDaily;
+          };
 
     let {
         menu,
         onClose,
         onCreate,
         onEdit,
-        onChangeColor,
+        onDelete,
+        onChangeTarget,
     }: {
-        menu: TaskContextMenuState | null;
+        menu: DailyContextMenuState | null;
         onClose: () => void;
         onCreate: () => void;
-        onEdit: (task: CalendarTask) => void;
-        onChangeColor: (task: CalendarTask, color: TaskColor) => void;
+        onEdit: (daily: DayplannerDaily) => void;
+        onDelete: (daily: DayplannerDaily) => void;
+        onChangeTarget: (daily: DayplannerDaily, target: number) => void;
     } = $props();
 
-    const taskColors: TaskColor[] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-    ] as TaskColor[];
 
     const viewportPaddingPx: number = 8;
 
@@ -62,6 +73,21 @@
         menuTopPx = clamp(menu.y, viewportPaddingPx, maxTop);
     }
 
+    function handleWindowResize(): void {
+        if (!menu) {
+            return;
+        }
+
+        void updateMenuPosition();
+    }
+
+    function handleTargetInput(event: Event, daily: DayplannerDaily): void {
+        const input: HTMLInputElement = event.currentTarget as HTMLInputElement;
+        const target: number = Number(input.value);
+
+        onChangeTarget(daily, target);
+    }
+
     $effect((): void => {
         if (!menu) {
             return;
@@ -70,15 +96,7 @@
         void updateMenuPosition();
     });
 
-    function handleWindowResize(): void {
-        if (!menu) {
-            return;
-        }
-
-        void updateMenuPosition();
-    }
-    
-    const menuKey: string = "tasks";
+    const menuKey: string = "dayplanner-dailies";
     let wasOpen: boolean = $state(false);
 
     $effect((): void => {
@@ -132,11 +150,13 @@
 
                 if (menu.mode === "empty") {
                     onCreate();
+                } else {
+                    onEdit(menu.daily);
                 }
             }
         }}
-        role="button"
-        tabindex="0"
+        role="menu"
+        tabindex="-1"
     >
         {#if menu.mode === "empty"}
             <button type="button" class="context-menu-item" onclick={onCreate}>
@@ -146,25 +166,40 @@
             <button
                 type="button"
                 class="context-menu-item"
-                onclick={() => onEdit(menu.task)}
+                onclick={() => onEdit(menu.daily)}
             >
                 Edit
             </button>
 
+            <button
+                type="button"
+                class="context-menu-item context-menu-item-danger"
+                onclick={() => onDelete(menu.daily)}
+            >
+                Delete
+            </button>
+
             <div class="context-menu-separator"></div>
 
-            <div class="context-menu-section-label">Change color</div>
+            <div class="context-menu-section-label">
+                Target: {menu.daily.target}
+            </div>
 
-            <div class="context-menu-color-grid">
-                {#each taskColors as color (color)}
-                    <button
-                        type="button"
-                        class={`context-menu-color-dot task-color-${color}`}
-                        onclick={() => onChangeColor(menu.task, color)}
-                        aria-label={`Set color ${color}`}
-                        title={`Set color ${color}`}
-                    ></button>
-                {/each}
+            <div class="target-slider-row">
+                <span>1</span>
+
+                <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={menu.daily.target}
+                    oninput={(event: Event): void =>
+                        handleTargetInput(event, menu.daily)}
+                    aria-label="Daily target"
+                />
+
+                <span>10</span>
             </div>
         {/if}
     </div>
@@ -209,71 +244,29 @@
         color: var(--color-text-muted);
     }
 
-    .context-menu-color-grid {
+    .target-slider-row {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 0.4rem;
-        padding: 0.25rem 0.4rem 0.4rem;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem 0.55rem;
+        color: var(--color-text-muted);
+        font-size: 0.8rem;
     }
 
-    .context-menu-color-dot {
-        width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 999px;
-        border: 1px solid color-mix(in srgb, var(--task-accent) 35%, white 65%);
-        background: var(--task-accent);
-        cursor: pointer;
+    .target-slider-row input {
+        width: 100%;
     }
 
-    .task-color-1 {
-        --task-accent: var(--color-task-primary);
+    .context-menu-item-danger {
+        color: var(--color-danger, var(--color-task-red));
     }
 
-    .task-color-2 {
-        --task-accent: var(--color-task-red);
-    }
-
-    .task-color-3 {
-        --task-accent: var(--color-task-rose);
-    }
-
-    .task-color-4 {
-        --task-accent: var(--color-task-blue);
-    }
-
-    .task-color-5 {
-        --task-accent: var(--color-task-blue-light);
-    }
-
-    .task-color-6 {
-        --task-accent: var(--color-task-green);
-    }
-
-    .task-color-7 {
-        --task-accent: var(--color-task-green-light);
-    }
-
-    .task-color-8 {
-        --task-accent: var(--color-task-yellow);
-    }
-
-    .task-color-9 {
-        --task-accent: var(--color-task-orange);
-    }
-
-    .task-color-10 {
-        --task-accent: var(--color-task-purple);
-    }
-
-    .task-color-11 {
-        --task-accent: var(--color-task-lavender);
-    }
-
-    .task-color-12 {
-        --task-accent: var(--color-task-gray);
-    }
-
-    .task-color-13 {
-        --task-accent: var(--color-task-brown);
+    .context-menu-item-danger:hover {
+        background: color-mix(
+            in srgb,
+            var(--color-danger, var(--color-task-red)) 12%,
+            transparent 88%
+        );
     }
 </style>

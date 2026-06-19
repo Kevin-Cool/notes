@@ -20,8 +20,22 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
-    
+
     scrollbar-color: var(--color-border) var(--color-surface);
+
+    /* todo colors */
+    --color-todo-primary-bg: color-mix(in srgb, var(--color-task-primary) 8%, var(--color-surface) 92%);
+    --color-todo-primary-border: color-mix(in srgb, var(--color-task-primary) 24%, var(--color-surface) 76%);
+    --color-todo-primary-text: var(--color-text);
+
+    --color-todo-red-bg: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface) 86%);
+    --color-todo-red-border: color-mix(in srgb, var(--color-warning) 38%, var(--color-surface) 62%);
+    --color-todo-red-text: var(--color-text-strong);
+
+    --color-todo-blue-bg: color-mix(in srgb, var(--color-task-blue) 8%, var(--color-surface) 92%);
+    --color-todo-blue-border: color-mix(in srgb, var(--color-task-blue) 24%, var(--color-surface) 76%);
+    --color-todo-blue-text: var(--color-text);
+
 }
 
 :root[data-theme="pink"] {
@@ -96,6 +110,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #fff8fa;
+    --color-todo-primary-border: #efc1ce;
+    --color-todo-primary-text: #7d4b5a;
+    --color-todo-primary-accent: #c96f8a;
+
+    --color-todo-red-bg: #fff0f3;
+    --color-todo-red-border: #e69bab;
+    --color-todo-red-text: #8f3f51;
+    --color-todo-red-accent: #d85c6f;
+
+    --color-todo-blue-bg: #f3f6ff;
+    --color-todo-blue-border: #bccaff;
+    --color-todo-blue-text: #4f6094;
+    --color-todo-blue-accent: #6f8ee8;
 }
 
 :root[data-theme="yellow"] {
@@ -114,7 +147,7 @@
     --color-text: #514735;
     --color-text-muted: #71634b;
     --color-text-strong: #403728;
-    
+
     --color-title: #8f6720;
     --color-heading: #a87312;
     --color-accent: #9a6818;
@@ -171,6 +204,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #fffaf0;
+    --color-todo-primary-border: #e5d29a;
+    --color-todo-primary-text: #514735;
+    --color-todo-primary-accent: #b98328;
+
+    --color-todo-red-bg: #fff0f0;
+    --color-todo-red-border: #efa5a8;
+    --color-todo-red-text: #8a3f42;
+    --color-todo-red-accent: #e5484d;
+
+    --color-todo-blue-bg: #f1f6ff;
+    --color-todo-blue-border: #b8c9f3;
+    --color-todo-blue-text: #4d5f87;
+    --color-todo-blue-accent: #6f8bd8;
 }
 
 :root[data-theme="berry"] {
@@ -246,6 +298,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #fff4f4;
+    --color-todo-primary-border: #e8b0b0;
+    --color-todo-primary-text: #663f3f;
+    --color-todo-primary-accent: #c35a5a;
+
+    --color-todo-red-bg: #ffeded;
+    --color-todo-red-border: #e99a9a;
+    --color-todo-red-text: #813737;
+    --color-todo-red-accent: #d63b3b;
+
+    --color-todo-blue-bg: #f2f5ff;
+    --color-todo-blue-border: #bac8f5;
+    --color-todo-blue-text: #4e5f8f;
+    --color-todo-blue-accent: #6f8de8;
 }
 
 :root[data-theme="cloud"] {
@@ -320,6 +391,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 10%, var(--color-surface) 90%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 35%, var(--color-surface) 65%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #f4f8ff;
+    --color-todo-primary-border: #c5cef6;
+    --color-todo-primary-text: #52668f;
+    --color-todo-primary-accent: #8d8be3;
+
+    --color-todo-red-bg: #fff0f5;
+    --color-todo-red-border: #efa4b9;
+    --color-todo-red-text: #8a4058;
+    --color-todo-red-accent: #e5486d;
+
+    --color-todo-blue-bg: #fff3f8;
+    --color-todo-blue-border: #efbfd2;
+    --color-todo-blue-text: #86536a;
+    --color-todo-blue-accent: #df7ea3;
 }
 
 :root[data-theme="rose-dark"] {
@@ -394,6 +484,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 18%, var(--color-surface) 82%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 45%, var(--color-border) 55%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #3a1725;
+    --color-todo-primary-border: #7f3850;
+    --color-todo-primary-text: #f0c7d1;
+    --color-todo-primary-accent: #e85f86;
+
+    --color-todo-red-bg: #421722;
+    --color-todo-red-border: #9f384c;
+    --color-todo-red-text: #ffd6de;
+    --color-todo-red-accent: #ff5c6f;
+
+    --color-todo-blue-bg: #25264a;
+    --color-todo-blue-border: #5a65a8;
+    --color-todo-blue-text: #d8ddff;
+    --color-todo-blue-accent: #8da2ff;
 }
 
 :root[data-theme="cloud-dark"] {
@@ -466,6 +575,25 @@
 
     --color-task-card-bg: color-mix(in srgb, var(--color-task-primary) 18%, var(--color-surface) 82%);
     --color-task-card-border: color-mix(in srgb, var(--color-task-primary) 45%, var(--color-border) 55%);
+
+    /* day planner */
+    --color-dayplanner-completed: var(--color-task-green);
+    --color-dayplanner-partial: var(--color-task-yellow);
+
+    --color-todo-primary-bg: #20294d;
+    --color-todo-primary-border: #5667aa;
+    --color-todo-primary-text: #dbe7ff;
+    --color-todo-primary-accent: #9b9aff;
+
+    --color-todo-red-bg: #3a1f32;
+    --color-todo-red-border: #9f4058;
+    --color-todo-red-text: #ffd6e1;
+    --color-todo-red-accent: #ff6b8a;
+
+    --color-todo-blue-bg: #352139;
+    --color-todo-blue-border: #895577;
+    --color-todo-blue-text: #ffd9ec;
+    --color-todo-blue-accent: #f28abc;
 }
 
 html,

@@ -283,7 +283,7 @@
         hoveredLinkUrl = href;
 
         hoveredLinkLeft = rect.left + rect.width / 2;
-        hoveredLinkTop = rect.bottom + 45;
+        hoveredLinkTop = rect.bottom + 8;
     }
 
     function getLinkTypeFromHref(href: string): LinkType {
@@ -401,50 +401,232 @@
             return true;
         }
 
-        const hasMultipleLines: boolean = trimmedText.includes("\n");
-        const hasIndentation: boolean = /^( {2,}|\t+)/m.test(trimmedText);
+        const lines: string[] = trimmedText
+            .split(/\r?\n/)
+            .map((line: string): string => line.trimEnd());
 
-        const hasCodeKeywords: boolean =
-            /\b(const|let|var|function|class|interface|type|import|export|return|if|else|for|while|switch|case|try|catch|async|await|public|private|protected|enum|implements|extends|new)\b/.test(
-                trimmedText,
+        const nonEmptyLines: string[] = lines.filter(
+            (line: string): boolean => line.trim().length > 0,
+        );
+
+        if (nonEmptyLines.length === 0) {
+            return false;
+        }
+
+        if (looksLikeHtml(trimmedText) || looksLikeCss(trimmedText)) {
+            return true;
+        }
+
+        let codeLineCount: number = 0;
+        let strongCodeLineCount: number = 0;
+        let proseLineCount: number = 0;
+
+        for (const line of nonEmptyLines) {
+            const result: CodeLineResult = analyseCodeLine(line);
+
+            if (result.looksLikeCode) {
+                codeLineCount++;
+            }
+
+            if (result.strongCodeSignal) {
+                strongCodeLineCount++;
+            }
+
+            if (result.looksLikeProse) {
+                proseLineCount++;
+            }
+        }
+
+        const codeLineRatio: number = codeLineCount / nonEmptyLines.length;
+        const proseLineRatio: number = proseLineCount / nonEmptyLines.length;
+
+        /*
+         * A single strong line is enough for pasted snippets such as:
+         * return class.attribute;
+         * const value = getValue();
+         */
+        if (nonEmptyLines.length === 1) {
+            return strongCodeLineCount === 1;
+        }
+
+        /*
+         * For short multi-line snippets, accept code when several lines
+         * contain meaningful syntax.
+         */
+        if (nonEmptyLines.length <= 5) {
+            return (
+                strongCodeLineCount >= 1 &&
+                codeLineRatio >= 0.4 &&
+                proseLineRatio < 0.75
+            );
+        }
+
+        /*
+         * For larger texts, require code-like syntax across a meaningful
+         * portion of the text. Random keywords in prose will not be enough.
+         */
+        return (
+            strongCodeLineCount >= 2 &&
+            codeLineRatio >= 0.3 &&
+            proseLineRatio < 0.6
+        );
+    }
+
+    interface CodeLineResult {
+        looksLikeCode: boolean;
+        strongCodeSignal: boolean;
+        looksLikeProse: boolean;
+    }
+
+    function analyseCodeLine(line: string): CodeLineResult {
+        const trimmedLine: string = line.trim();
+
+        if (trimmedLine.length === 0) {
+            return {
+                looksLikeCode: false,
+                strongCodeSignal: false,
+                looksLikeProse: false,
+            };
+        }
+
+        let score: number = 0;
+        let hasStrongSignal: boolean = false;
+
+        const hasDeclaration: boolean =
+            /^(?:export\s+)?(?:declare\s+)?(?:async\s+)?(?:const|let|var|function|class|interface|type|enum|namespace)\b/.test(
+                trimmedLine,
             );
 
-        const hasAssignmentOrArrow: boolean = /=>|=\s*[^=]/.test(trimmedText);
+        const hasAccessModifierDeclaration: boolean =
+            /^(?:public|private|protected|readonly|static|abstract|override)\s+(?:readonly\s+|static\s+|async\s+)*[a-zA-Z_$][\w$]*(?:\s*[(:=]|\s+\??:)/.test(
+                trimmedLine,
+            );
 
-        const hasCodeDelimiters: boolean = /[{}[\];]/.test(trimmedText);
+        const hasControlStatement: boolean =
+            /^(?:if|else\s+if|for|foreach|while|switch|catch|using|lock)\s*\(/.test(
+                trimmedLine,
+            );
 
-        const hasFunctionCall: boolean =
-            /\b[a-zA-Z_$][\w$]*\s*\([^()\n]*\)/.test(trimmedText);
+        const hasReturnStatement: boolean =
+            /^return(?:\s+[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*|\s+[\[{('"`\d]|;)/.test(
+                trimmedLine,
+            );
 
-        const looksLikeHtml: boolean = /<\/?[a-z][\s\S]*>/i.test(trimmedText);
+        const hasImportExportStatement: boolean =
+            /^(?:import|export)\s+(?:\{|\*|default\b|type\b|[a-zA-Z_$])/.test(
+                trimmedLine,
+            );
 
-        const looksLikeCss: boolean =
-            /^[.#]?[a-zA-Z0-9\-_]+\s*\{[\s\S]*\}$/m.test(trimmedText);
+        const hasAssignment: boolean =
+            /(?:^|[\s([{,;])(?:[a-zA-Z_$][\w$]*)(?:\.[a-zA-Z_$][\w$]*|\[[^\]]+\])*\s*(?:=|\+=|-=|\*=|\/=|\?\?=|&&=|\|\|=)\s*(?![=])/.test(
+                trimmedLine,
+            );
 
-        if (looksLikeHtml || looksLikeCss) {
-            return true;
+        const hasTypedDeclaration: boolean =
+            /^(?:const|let|var)\s+[a-zA-Z_$][\w$]*\s*(?::\s*[^=;]+)?\s*=/.test(
+                trimmedLine,
+            );
+
+        const hasArrowFunction: boolean =
+            /(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>/.test(trimmedLine);
+
+        const hasMethodCallStatement: boolean =
+            /^(?:await\s+)?[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)*\s*\([^;]*\)\s*;?$/.test(
+                trimmedLine,
+            );
+
+        const hasPropertyAccessStatement: boolean =
+            /^(?:return\s+)?[a-zA-Z_$][\w$]*(?:\.[a-zA-Z_$][\w$]*)+\s*;?$/.test(
+                trimmedLine,
+            );
+
+        const hasCodeEnding: boolean = /[;{}]$/.test(trimmedLine);
+
+        const isComment: boolean = /^(?:\/\/|\/\*|\*|<!--|#\s)/.test(
+            trimmedLine,
+        );
+
+        const isStructuralLine: boolean =
+            /^(?:\{|\}|\};|\);|\],?|\),?|\};?)$/.test(trimmedLine);
+
+        if (hasDeclaration || hasAccessModifierDeclaration) {
+            score += 4;
+            hasStrongSignal = true;
         }
 
-        if (hasMultipleLines && hasIndentation) {
-            return true;
+        if (hasControlStatement || hasReturnStatement) {
+            score += 4;
+            hasStrongSignal = true;
         }
 
-        const strongSignals: number = [
-            hasCodeKeywords,
-            hasAssignmentOrArrow,
-            hasCodeDelimiters,
-            hasFunctionCall,
-        ].filter(Boolean).length;
-
-        if (hasMultipleLines && strongSignals >= 1) {
-            return true;
+        if (hasImportExportStatement) {
+            score += 4;
+            hasStrongSignal = true;
         }
 
-        if (!hasMultipleLines && strongSignals >= 2) {
-            return true;
+        if (hasTypedDeclaration || hasArrowFunction) {
+            score += 4;
+            hasStrongSignal = true;
         }
 
-        return false;
+        if (hasAssignment) {
+            score += 3;
+            hasStrongSignal = true;
+        }
+
+        if (hasMethodCallStatement || hasPropertyAccessStatement) {
+            score += 3;
+            hasStrongSignal = true;
+        }
+
+        if (hasCodeEnding) {
+            score += 1;
+        }
+
+        if (isComment) {
+            score += 1;
+        }
+
+        if (isStructuralLine) {
+            score += 2;
+        }
+
+        const wordCount: number =
+            trimmedLine.match(/\b[\p{L}\p{N}_'-]+\b/gu)?.length ?? 0;
+
+        const sentencePunctuationCount: number =
+            trimmedLine.match(/[.!?](?:\s|$)/g)?.length ?? 0;
+
+        const hasCommonProsePattern: boolean =
+            /\b(?:the|this|that|these|those|and|but|because|when|where|which|with|from|into|about|would|should|could|is|are|was|were)\b/i.test(
+                trimmedLine,
+            );
+
+        const looksLikeProse: boolean =
+            wordCount >= 8 &&
+            !hasStrongSignal &&
+            (hasCommonProsePattern || sentencePunctuationCount > 0);
+
+        if (looksLikeProse) {
+            score -= 3;
+        }
+
+        return {
+            looksLikeCode: score >= 2,
+            strongCodeSignal: hasStrongSignal && score >= 3,
+            looksLikeProse,
+        };
+    }
+
+    function looksLikeHtml(text: string): boolean {
+        return /<\/?[a-z][a-z0-9-]*(?:\s+[^<>]*?)?\s*\/?>/i.test(text);
+    }
+
+    function looksLikeCss(text: string): boolean {
+        const cssRulePattern: RegExp =
+            /(?:^|\n)\s*(?:[.#]?[a-zA-Z][\w-]*|\[[^\]]+\]|:[\w-]+)(?:[\s>+~.,:#\[\]="']+[^{]+)?\s*\{[^{}]*:[^{};]+;?[^{}]*\}/;
+
+        return cssRulePattern.test(text);
     }
 
     function insertLinkFromPaste(
@@ -2076,6 +2258,8 @@
         position: fixed;
         z-index: 50;
 
+        transform: translateX(-50%);
+
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -2085,7 +2269,6 @@
 
         background: var(--color-surface);
         border: 1px solid var(--color-border);
-
         box-shadow: var(--shadow-soft);
 
         font-size: 0.78rem;

@@ -1,8 +1,9 @@
 <script lang="ts">
     import { tick } from "svelte";
-    import type { CalendarTask } from "$lib/types/tasks/calendar-task";
-    import type { TaskColor } from "$lib/types/tasks/task-color";
-    import type { TaskContextMenuState } from "$lib/types/tasks/task-context-menu";
+
+    import type { DayplannerTodo } from "$lib/types/dayplanner/dayplanner-todo";
+    import type { TodoContextMenuState } from "$lib/types/dayplanner/todo-context-menu";
+    import { TodoColor } from "$lib/types/dayplanner/todo-color";
     import { uiState } from "$lib/state/ui.svelte";
 
     let {
@@ -10,18 +11,22 @@
         onClose,
         onCreate,
         onEdit,
+        onDelete,
         onChangeColor,
     }: {
-        menu: TaskContextMenuState | null;
+        menu: TodoContextMenuState | null;
         onClose: () => void;
         onCreate: () => void;
-        onEdit: (task: CalendarTask) => void;
-        onChangeColor: (task: CalendarTask, color: TaskColor) => void;
+        onEdit: (todo: DayplannerTodo) => void;
+        onDelete: (todo: DayplannerTodo) => void;
+        onChangeColor: (todo: DayplannerTodo, color: TodoColor) => void;
     } = $props();
 
-    const taskColors: TaskColor[] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-    ] as TaskColor[];
+    const todoColors: TodoColor[] = [
+        TodoColor.Primary,
+        TodoColor.Red,
+        TodoColor.Blue,
+    ];
 
     const viewportPaddingPx: number = 8;
 
@@ -62,6 +67,14 @@
         menuTopPx = clamp(menu.y, viewportPaddingPx, maxTop);
     }
 
+    function handleWindowResize(): void {
+        if (!menu) {
+            return;
+        }
+
+        void updateMenuPosition();
+    }
+
     $effect((): void => {
         if (!menu) {
             return;
@@ -70,15 +83,7 @@
         void updateMenuPosition();
     });
 
-    function handleWindowResize(): void {
-        if (!menu) {
-            return;
-        }
-
-        void updateMenuPosition();
-    }
-    
-    const menuKey: string = "tasks";
+    const menuKey: string = "dayplanner-todos";
     let wasOpen: boolean = $state(false);
 
     $effect((): void => {
@@ -132,11 +137,13 @@
 
                 if (menu.mode === "empty") {
                     onCreate();
+                } else {
+                    onEdit(menu.todo);
                 }
             }
         }}
-        role="button"
-        tabindex="0"
+        role="menu"
+        tabindex="-1"
     >
         {#if menu.mode === "empty"}
             <button type="button" class="context-menu-item" onclick={onCreate}>
@@ -146,9 +153,17 @@
             <button
                 type="button"
                 class="context-menu-item"
-                onclick={() => onEdit(menu.task)}
+                onclick={() => onEdit(menu.todo)}
             >
                 Edit
+            </button>
+
+            <button
+                type="button"
+                class="context-menu-item context-menu-item-danger"
+                onclick={() => onDelete(menu.todo)}
+            >
+                Delete
             </button>
 
             <div class="context-menu-separator"></div>
@@ -156,11 +171,11 @@
             <div class="context-menu-section-label">Change color</div>
 
             <div class="context-menu-color-grid">
-                {#each taskColors as color (color)}
+                {#each todoColors as color (color)}
                     <button
                         type="button"
-                        class={`context-menu-color-dot task-color-${color}`}
-                        onclick={() => onChangeColor(menu.task, color)}
+                        class={`context-menu-color-dot todo-color-${color}`}
+                        onclick={() => onChangeColor(menu.todo, color)}
                         aria-label={`Set color ${color}`}
                         title={`Set color ${color}`}
                     ></button>
@@ -211,7 +226,7 @@
 
     .context-menu-color-grid {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 0.4rem;
         padding: 0.25rem 0.4rem 0.4rem;
     }
@@ -220,60 +235,38 @@
         width: 1.25rem;
         height: 1.25rem;
         border-radius: 999px;
-        border: 1px solid color-mix(in srgb, var(--task-accent) 35%, white 65%);
-        background: var(--task-accent);
+        border: 1px solid var(--todo-border);
+        background: var(--todo-bg);
         cursor: pointer;
     }
 
-    .task-color-1 {
-        --task-accent: var(--color-task-primary);
+    .context-menu-item-danger {
+        color: var(--color-danger, var(--color-task-red));
     }
 
-    .task-color-2 {
-        --task-accent: var(--color-task-red);
+    .context-menu-item-danger:hover {
+        background: color-mix(
+            in srgb,
+            var(--color-danger, var(--color-task-red)) 12%,
+            transparent 88%
+        );
     }
 
-    .task-color-3 {
-        --task-accent: var(--color-task-rose);
+    .todo-color-1 {
+        --todo-bg: var(--color-todo-primary-bg);
+        --todo-border: var(--color-todo-primary-border);
+        --todo-accent: var(--color-todo-primary-accent);
     }
 
-    .task-color-4 {
-        --task-accent: var(--color-task-blue);
+    .todo-color-2 {
+        --todo-bg: var(--color-todo-red-bg);
+        --todo-border: var(--color-todo-red-border);
+        --todo-accent: var(--color-todo-red-accent);
     }
 
-    .task-color-5 {
-        --task-accent: var(--color-task-blue-light);
-    }
-
-    .task-color-6 {
-        --task-accent: var(--color-task-green);
-    }
-
-    .task-color-7 {
-        --task-accent: var(--color-task-green-light);
-    }
-
-    .task-color-8 {
-        --task-accent: var(--color-task-yellow);
-    }
-
-    .task-color-9 {
-        --task-accent: var(--color-task-orange);
-    }
-
-    .task-color-10 {
-        --task-accent: var(--color-task-purple);
-    }
-
-    .task-color-11 {
-        --task-accent: var(--color-task-lavender);
-    }
-
-    .task-color-12 {
-        --task-accent: var(--color-task-gray);
-    }
-
-    .task-color-13 {
-        --task-accent: var(--color-task-brown);
+    .todo-color-3 {
+        --todo-bg: var(--color-todo-blue-bg);
+        --todo-border: var(--color-todo-blue-border);
+        --todo-accent: var(--color-todo-blue-accent);
     }
 </style>

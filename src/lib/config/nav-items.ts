@@ -1,5 +1,6 @@
 import noteIcon from "$lib/assets/icons/note.svg";
 import calendarIcon from "$lib/assets/icons/calendar_icon.svg";
+import tasksIcon from "$lib/assets/icons/tasks_icon.svg";
 
 export type NavItemIcon =
 	| {
@@ -55,6 +56,17 @@ export const navItems: NavItem[] = [
 			alt: "calendar",
 		},
 		href: "/tasks",
+		position: "middle",
+	},
+	{
+		id: "planning",
+		label: "Planning",
+		icon: {
+			type: "image",
+			value: tasksIcon,
+			alt: "calendar",
+		},
+		href: "/dayplanner",
 		position: "middle",
 	},
 	{

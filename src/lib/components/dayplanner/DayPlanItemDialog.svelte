@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { CalendarTask } from "$lib/types/tasks/calendar-task";
-    import type { CalendarTaskDraft } from "$lib/types/tasks/calendar-task-draft";
+    import type { DayPlanItem } from "$lib/types/dayplanner/day-plan-item";
+    import type { DayPlanItemDraft } from "$lib/types/dayplanner/day-plan-item-draft";
     import { TaskColor } from "$lib/types/tasks/task-color";
 
     import trash_icon from "$lib/assets/icons/trash_icon.svg";
@@ -10,7 +10,7 @@
     let {
         isOpen,
         mode,
-        initialTask = null,
+        initialItem = null,
         initialStartDate = null,
         onClose,
         onSubmit,
@@ -18,10 +18,10 @@
     }: {
         isOpen: boolean;
         mode: "create" | "update";
-        initialTask?: CalendarTask | null;
+        initialItem?: DayPlanItem | null;
         initialStartDate?: Date | null;
         onClose?: () => void;
-        onSubmit?: (draft: CalendarTaskDraft) => void | Promise<void>;
+        onSubmit?: (draft: DayPlanItemDraft) => void | Promise<void>;
         onDelete?: () => void | Promise<void>;
     } = $props();
 
@@ -42,14 +42,12 @@
     ];
 
     let title: string = $state("");
-    let description: string = $state("");
     let startDate: string = $state("");
     let startTime: string = $state("");
     let endDate: string = $state("");
     let endTime: string = $state("");
-    let color: number = $state(TaskColor.Primary);
+    let color: TaskColor = $state(TaskColor.Primary);
     let isSubmitting: boolean = $state(false);
-    let titleError: string = $state("");
     let dateError: string = $state("");
 
     let timeMode: TimeMode = $state("duration");
@@ -58,6 +56,7 @@
     let isEditingDuration: boolean = $state(false);
 
     let backdropPointerStartedOnBackdrop: boolean = $state(false);
+    let wasOpen: boolean = false;
 
     function handleDurationFocus(): void {
         isEditingDuration = true;
@@ -88,6 +87,7 @@
 
     function getDurationMinutes(start: Date, end: Date): number {
         const differenceMs: number = end.getTime() - start.getTime();
+
         return Math.max(15, Math.round(differenceMs / 60000));
     }
 
@@ -110,6 +110,7 @@
         const beforeColon: string = digitsAndColonOnly
             .slice(0, colonIndex)
             .slice(0, 2);
+
         const afterColonRaw: string = digitsAndColonOnly.slice(colonIndex + 1);
         const afterColon: string = afterColonRaw.replace(/:/g, "").slice(0, 2);
 
@@ -244,13 +245,9 @@
             return;
         }
 
-        const oldEnd: Date = combineDateAndTime(endDate, endTime);
         const newStart: Date = combineDateAndTime(startDate, startTime);
 
-        if (
-            Number.isNaN(oldEnd.getTime()) ||
-            Number.isNaN(newStart.getTime())
-        ) {
+        if (Number.isNaN(newStart.getTime())) {
             return;
         }
 
@@ -323,24 +320,23 @@
     }
 
     function applyInitialValues(): void {
-        if (mode === "update" && initialTask) {
+        if (mode === "update" && initialItem) {
             const start: Date =
-                initialTask.start instanceof Date
-                    ? initialTask.start
-                    : new Date(initialTask.start);
+                initialItem.start instanceof Date
+                    ? initialItem.start
+                    : new Date(initialItem.start);
 
             const end: Date =
-                initialTask.end instanceof Date
-                    ? initialTask.end
-                    : new Date(initialTask.end);
+                initialItem.end instanceof Date
+                    ? initialItem.end
+                    : new Date(initialItem.end);
 
-            title = initialTask.title;
-            description = initialTask.description ?? "";
+            title = initialItem.title ?? "";
             startDate = formatDateInputValue(start);
             startTime = formatTimeInputValue(start);
             endDate = formatDateInputValue(end);
             endTime = formatTimeInputValue(end);
-            color = initialTask.color;
+            color = initialItem.color;
 
             durationMinutes = getDurationMinutes(start, end);
             durationInput = formatDurationInputValue(durationMinutes);
@@ -359,7 +355,6 @@
         roundedEnd.setHours(roundedEnd.getHours() + 1);
 
         title = "";
-        description = "";
         startDate = formatDateInputValue(roundedStart);
         startTime = formatTimeInputValue(roundedStart);
         endDate = formatDateInputValue(roundedEnd);
@@ -372,12 +367,7 @@
     }
 
     function validate(): boolean {
-        titleError = "";
         dateError = "";
-
-        if (title.trim().length === 0) {
-            titleError = "Title is required.";
-        }
 
         if (
             startDate.trim().length === 0 ||
@@ -386,7 +376,7 @@
                 (endDate.trim().length === 0 || endTime.trim().length === 0))
         ) {
             dateError = "Start and end are required.";
-            return titleError.length === 0;
+            return false;
         }
 
         if (timeMode === "duration") {
@@ -395,7 +385,7 @@
 
             if (parsedDuration === null || parsedDuration <= 0) {
                 dateError = "Length must be valid.";
-                return titleError.length === 0;
+                return false;
             }
 
             durationMinutes = parsedDuration;
@@ -412,7 +402,7 @@
             dateError = "End must be after start.";
         }
 
-        return titleError.length === 0 && dateError.length === 0;
+        return dateError.length === 0;
     }
 
     async function handleSubmit(): Promise<void> {
@@ -422,11 +412,10 @@
 
         const start: Date = combineDateAndTime(startDate, startTime);
         const end: Date = combineDateAndTime(endDate, endTime);
+        const trimmedTitle: string = title.trim();
 
-        const draft: CalendarTaskDraft = {
-            title: title.trim(),
-            description:
-                description.trim().length > 0 ? description.trim() : null,
+        const draft: DayPlanItemDraft = {
+            title: trimmedTitle.length > 0 ? trimmedTitle : undefined,
             start,
             end,
             color,
@@ -442,7 +431,9 @@
     }
 
     function handleGlobalKeydown(event: KeyboardEvent): void {
-        if (!isOpen) return;
+        if (!isOpen) {
+            return;
+        }
 
         if (event.key === "Escape") {
             event.preventDefault();
@@ -510,12 +501,9 @@
         };
     });
 
-    let wasOpen: boolean = false;
-
     $effect((): void => {
         if (isOpen && !wasOpen) {
             applyInitialValues();
-            titleError = "";
             dateError = "";
         }
 
@@ -534,10 +522,10 @@
             class="dialog"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="task-dialog-title"
+            aria-labelledby="day-plan-item-dialog-title"
         >
-            <h2 id="task-dialog-title" class="dialog-title">
-                {mode === "create" ? "Create task" : "Update task"}
+            <h2 id="day-plan-item-dialog-title" class="dialog-title">
+                {mode === "create" ? "Create plan item" : "Update plan item"}
             </h2>
 
             <div class="form-grid">
@@ -548,21 +536,8 @@
                         type="text"
                         bind:value={title}
                         maxlength="200"
-                        placeholder="Task title"
+                        placeholder="Plan item title"
                     />
-                    {#if titleError}
-                        <span class="field-error">{titleError}</span>
-                    {/if}
-                </label>
-
-                <label class="field">
-                    <span class="field-label">Description</span>
-                    <textarea
-                        class="text-area"
-                        bind:value={description}
-                        rows="4"
-                        placeholder="Description"
-                    ></textarea>
                 </label>
 
                 <div class="date-time-section">
@@ -684,7 +659,7 @@
                     <div
                         class="color-picker"
                         role="radiogroup"
-                        aria-label="Task color"
+                        aria-label="Plan item color"
                     >
                         {#each availableColors as taskColor (taskColor)}
                             <button
@@ -710,8 +685,8 @@
                         class="delete-icon-button"
                         onclick={() => void handleDelete()}
                         disabled={isSubmitting}
-                        aria-label="Delete task"
-                        title="Delete task"
+                        aria-label="Delete plan item"
+                        title="Delete plan item"
                     >
                         <span
                             class="icon-image delete-icon"

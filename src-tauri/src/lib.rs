@@ -90,6 +90,16 @@ pub fn run() {
             note_db::get_app_setting,
             note_db::set_app_setting,
             note_db::get_storage_usage,
+            
+            note_db::get_all_dayplanner_todos,
+            note_db::upsert_dayplanner_todo,
+            note_db::delete_dayplanner_todo,
+            note_db::get_all_dayplanner_dailies,
+            note_db::upsert_dayplanner_daily,
+            note_db::delete_dayplanner_daily,
+            note_db::get_day_plan_items_for_day,
+            note_db::upsert_day_plan_item,
+            note_db::delete_day_plan_item,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

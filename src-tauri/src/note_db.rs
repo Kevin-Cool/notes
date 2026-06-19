@@ -77,6 +77,62 @@ pub struct StorageUsageRecord {
     pub total_bytes: i64,
 }
 
+// day planner
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DayplannerTodoRecord {
+    pub id: String,
+    pub title: String,
+    pub color: i32,
+    pub completed: bool,
+    pub completion_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpsertDayplannerTodoPayload {
+    pub id: Option<String>,
+    pub title: String,
+    pub color: i32,
+    pub completed: bool,
+    pub completion_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DayplannerDailyRecord {
+    pub id: String,
+    pub title: String,
+    pub orderNr: i32,
+    pub completed: i32,
+    pub target: i32,
+    pub completion_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpsertDayplannerDailyPayload {
+    pub id: Option<String>,
+    pub title: String,
+    pub orderNr: i32,
+    pub completed: i32,
+    pub target: i32,
+    pub completion_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DayPlanItemRecord {
+    pub id: String,
+    pub title: Option<String>,
+    pub color: i32,
+    pub start: String,
+    pub end: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpsertDayPlanItemPayload {
+    pub id: Option<String>,
+    pub title: Option<String>,
+    pub color: i32,
+    pub start: String,
+    pub end: String,
+}
 fn parse_and_validate_iso_datetime(value: &str, field_name: &str) -> Result<String, String> {
     let parsed: chrono::DateTime<chrono::FixedOffset> = chrono::DateTime::parse_from_rfc3339(value)
         .map_err(|error| format!("invalid {field_name} ISO datetime: {error}"))?;
@@ -167,6 +223,31 @@ fn open_connection(app: &AppHandle) -> Result<Connection, String> {
             key TEXT PRIMARY KEY NOT NULL,
             value TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS dayplanner_todos (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            color INTEGER NOT NULL,
+            completed INTEGER NOT NULL,
+            completion_date TEXT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS dayplanner_dailies (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            orderNr INTEGER NOT NULL,
+            completed INTEGER NOT NULL,
+            target INTEGER NOT NULL,
+            completion_date TEXT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS day_plan_items (
+            id TEXT PRIMARY KEY,
+            title TEXT NULL,
+            color INTEGER NOT NULL,
+            start TEXT NOT NULL,
+            end TEXT NOT NULL
         );
         ",
         )
@@ -1013,4 +1094,570 @@ pub fn get_storage_usage(app: AppHandle) -> Result<StorageUsageRecord, String> {
         thumbnails_bytes,
         total_bytes,
     })
+}
+
+#[tauri::command]
+pub fn get_all_dayplanner_todos(app: AppHandle) -> Result<Vec<DayplannerTodoRecord>, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    delete_expired_dayplanner_todos(&connection)?;
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT id, title, color, completed, completion_date
+            FROM dayplanner_todos
+            ORDER BY rowid ASC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare get_all_dayplanner_todos: {error}"))?;
+
+    let todo_iterator = statement
+        .query_map([], |row| {
+            let completed_value: i32 = row.get(3)?;
+
+            let todo: DayplannerTodoRecord = DayplannerTodoRecord {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                color: row.get(2)?,
+                completed: completed_value != 0,
+                completion_date: row.get(4)?,
+            };
+
+            Ok(todo)
+        })
+        .map_err(|error| format!("failed to query all dayplanner todos: {error}"))?;
+
+    let mut todos: Vec<DayplannerTodoRecord> = Vec::new();
+
+    for todo_result in todo_iterator {
+        let todo: DayplannerTodoRecord =
+            todo_result.map_err(|error| format!("failed to read dayplanner todo row: {error}"))?;
+
+        todos.push(todo);
+    }
+
+    Ok(todos)
+}
+fn delete_expired_dayplanner_todos(connection: &Connection) -> Result<(), String> {
+    let today: chrono::NaiveDate = chrono::Local::now().date_naive();
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT id, completed, completion_date
+            FROM dayplanner_todos
+            ",
+        )
+        .map_err(|error| format!("failed to prepare expired todo cleanup: {error}"))?;
+
+    let todo_iterator = statement
+        .query_map([], |row| {
+            let id: String = row.get(0)?;
+            let completed_value: i32 = row.get(1)?;
+            let completion_date: Option<String> = row.get(2)?;
+
+            Ok((id, completed_value != 0, completion_date))
+        })
+        .map_err(|error| format!("failed to query expired todo cleanup: {error}"))?;
+
+    let mut todo_ids_to_delete: Vec<String> = Vec::new();
+
+    for todo_result in todo_iterator {
+        let (todo_id, completed, completion_date): (String, bool, Option<String>) =
+            todo_result.map_err(|error| format!("failed to read expired todo row: {error}"))?;
+
+        if !completed {
+            continue;
+        }
+
+        let Some(completion_date_value) = completion_date else {
+            todo_ids_to_delete.push(todo_id);
+            continue;
+        };
+
+        let parsed_completion_date: chrono::DateTime<chrono::FixedOffset> =
+            match chrono::DateTime::parse_from_rfc3339(&completion_date_value) {
+                Ok(value) => value,
+                Err(_) => {
+                    todo_ids_to_delete.push(todo_id);
+                    continue;
+                }
+            };
+
+        let completion_day: chrono::NaiveDate =
+            parsed_completion_date.with_timezone(&chrono::Local).date_naive();
+
+        if completion_day != today {
+            todo_ids_to_delete.push(todo_id);
+        }
+    }
+
+    for todo_id in todo_ids_to_delete {
+        connection
+            .execute(
+                "
+                DELETE FROM dayplanner_todos
+                WHERE id = ?1
+                ",
+                params![todo_id],
+            )
+            .map_err(|error| format!("failed to delete expired dayplanner todo: {error}"))?;
+    }
+
+    Ok(())
+}
+#[tauri::command]
+pub fn upsert_dayplanner_todo(
+    app: AppHandle,
+    todo: UpsertDayplannerTodoPayload,
+) -> Result<DayplannerTodoRecord, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let todo_id: String = match todo.id {
+        Some(value) if !value.trim().is_empty() => value,
+        _ => Uuid::new_v4().to_string(),
+    };
+
+    let title: String = todo.title.trim().chars().take(1024).collect();
+
+    let completion_date: Option<String> = if todo.completed {
+        match todo.completion_date {
+            Some(value) if !value.trim().is_empty() => {
+                let parsed: chrono::DateTime<chrono::FixedOffset> =
+                    chrono::DateTime::parse_from_rfc3339(&value)
+                        .map_err(|error| format!("invalid completion_date ISO datetime: {error}"))?;
+
+                Some(parsed.to_rfc3339())
+            }
+            _ => Some(chrono::Utc::now().to_rfc3339()),
+        }
+    } else {
+        None
+    };
+
+    let dayplanner_todo: DayplannerTodoRecord = DayplannerTodoRecord {
+        id: todo_id,
+        title,
+        color: todo.color,
+        completed: todo.completed,
+        completion_date,
+    };
+
+    connection
+        .execute(
+            "
+            INSERT INTO dayplanner_todos (
+                id,
+                title,
+                color,
+                completed,
+                completion_date
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                color = excluded.color,
+                completed = excluded.completed,
+                completion_date = excluded.completion_date
+            ",
+            params![
+                dayplanner_todo.id,
+                dayplanner_todo.title,
+                dayplanner_todo.color,
+                if dayplanner_todo.completed { 1 } else { 0 },
+                dayplanner_todo.completion_date
+            ],
+        )
+        .map_err(|error| format!("failed to upsert dayplanner todo: {error}"))?;
+
+    Ok(dayplanner_todo)
+}
+
+#[tauri::command]
+pub fn delete_dayplanner_todo(app: AppHandle, todo_id: String) -> Result<(), String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let deleted_rows: usize = connection
+        .execute(
+            "
+            DELETE FROM dayplanner_todos
+            WHERE id = ?1
+            ",
+            params![todo_id],
+        )
+        .map_err(|error| format!("failed to delete dayplanner todo: {error}"))?;
+
+    if deleted_rows == 0 {
+        return Err("dayplanner todo not found".to_string());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_all_dayplanner_dailies(app: AppHandle) -> Result<Vec<DayplannerDailyRecord>, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    reset_completed_dayplanner_dailies(&connection)?;
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT id, title, orderNr, target, completed, completion_date
+            FROM dayplanner_dailies
+            ORDER BY rowid ASC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare get_all_dayplanner_dailies: {error}"))?;
+
+    let dailies_iterator = statement
+        .query_map([], |row| {
+            let daily: DayplannerDailyRecord = DayplannerDailyRecord {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                orderNr: row.get(2)?,
+                target: row.get(3)?,
+                completed: row.get(4)?,
+                completion_date: row.get(5)?,
+            };
+
+            Ok(daily)
+        })
+        .map_err(|error| format!("failed to query all dayplanner dailies: {error}"))?;
+
+    let mut dailies: Vec<DayplannerDailyRecord> = Vec::new();
+
+    for dailies_result in dailies_iterator {
+        let daily: DayplannerDailyRecord =
+            dailies_result.map_err(|error| format!("failed to read dayplanner daily row: {error}"))?;
+
+        dailies.push(daily);
+    }
+
+    Ok(dailies)
+}
+
+fn reset_completed_dayplanner_dailies(connection: &Connection) -> Result<(), String> {
+    let today: chrono::NaiveDate = chrono::Local::now().date_naive();
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT id, completed, completion_date
+            FROM dayplanner_dailies
+            ",
+        )
+        .map_err(|error| format!("failed to prepare expired dailies cleanup: {error}"))?;
+
+    let dailies_iterator = statement
+        .query_map([], |row| {
+            let id: String = row.get(0)?;
+            let completed_value: i32 = row.get(1)?;
+            let completion_date: Option<String> = row.get(2)?;
+
+            Ok((id, completed_value, completion_date))
+        })
+        .map_err(|error| format!("failed to query expired dailies cleanup: {error}"))?;
+
+    let mut daily_ids_to_update: Vec<String> = Vec::new();
+
+    for daily_result in dailies_iterator {
+        let (daily_id, completed, completion_date): (String, i32, Option<String>) =
+            daily_result.map_err(|error| format!("failed to read expired daily row: {error}"))?;
+
+        if completed == 0 {
+            continue;
+        }
+
+        let Some(completion_date_value) = completion_date else {
+            daily_ids_to_update.push(daily_id);
+            continue;
+        };
+
+        let parsed_completion_date: chrono::DateTime<chrono::FixedOffset> =
+            match chrono::DateTime::parse_from_rfc3339(&completion_date_value) {
+                Ok(value) => value,
+                Err(_) => {
+                    daily_ids_to_update.push(daily_id);
+                    continue;
+                }
+            };
+
+        let completion_day: chrono::NaiveDate =
+            parsed_completion_date.with_timezone(&chrono::Local).date_naive();
+
+        if completion_day != today {
+            daily_ids_to_update.push(daily_id);
+        }
+    }
+
+    for daily_id in daily_ids_to_update {
+        connection
+            .execute(
+                "
+                UPDATE dayplanner_dailies
+                SET completed = 0,
+                    completion_date = NULL
+                WHERE id = ?1
+                ",
+                params![daily_id],
+            )
+            .map_err(|error| format!("failed to delete expired dayplanner dailies: {error}"))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn upsert_dayplanner_daily(
+    app: AppHandle,
+    daily: UpsertDayplannerDailyPayload,
+) -> Result<DayplannerDailyRecord, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let daily_id: String = match daily.id {
+        Some(value) if !value.trim().is_empty() => value,
+        _ => Uuid::new_v4().to_string(),
+    };
+
+    let title: String = daily.title.trim().chars().take(1024).collect();
+
+    let has_completion_progress: bool = daily.completed > 0;
+
+    let completion_date: Option<String> = if has_completion_progress {
+        match daily.completion_date {
+            Some(value) if !value.trim().is_empty() => {
+                let parsed: chrono::DateTime<chrono::FixedOffset> =
+                    chrono::DateTime::parse_from_rfc3339(&value)
+                        .map_err(|error| format!("invalid completion_date ISO datetime: {error}"))?;
+
+                Some(parsed.to_rfc3339())
+            }
+            _ => Some(chrono::Utc::now().to_rfc3339()),
+        }
+    } else {
+        None
+    };
+
+    let dayplanner_daily: DayplannerDailyRecord = DayplannerDailyRecord {
+        id: daily_id,
+        title,
+        orderNr: daily.orderNr,
+        completed: daily.completed,
+        target: daily.target,
+        completion_date,
+    };
+
+    connection
+        .execute(
+            "
+            INSERT INTO dayplanner_dailies (
+                id,
+                title,
+                orderNr,
+                completed,
+                target,
+                completion_date
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                orderNr = excluded.orderNr,
+                completed = excluded.completed,
+                target = excluded.target,
+                completion_date = excluded.completion_date
+            ",
+            params![
+                dayplanner_daily.id,
+                dayplanner_daily.title,
+                dayplanner_daily.orderNr,
+                dayplanner_daily.completed,
+                dayplanner_daily.target,
+                dayplanner_daily.completion_date
+            ],
+        )
+        .map_err(|error| format!("failed to upsert dayplanner dailies: {error}"))?;
+
+    Ok(dayplanner_daily)
+}
+
+#[tauri::command]
+pub fn delete_dayplanner_daily(app: AppHandle, daily_id: String) -> Result<(), String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let deleted_rows: usize = connection
+        .execute(
+            "
+            DELETE FROM dayplanner_dailies
+            WHERE id = ?1
+            ",
+            params![daily_id],
+        )
+        .map_err(|error| format!("failed to delete dayplanner daily: {error}"))?;
+
+    if deleted_rows == 0 {
+        return Err("dayplanner daily not found".to_string());
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_day_plan_items_for_day(
+    app: AppHandle,
+    day_start: String,
+    day_end: String,
+) -> Result<Vec<DayPlanItemRecord>, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let normalized_day_start: String =
+        parse_and_validate_iso_datetime(&day_start, "day_start")?;
+    let normalized_day_end: String =
+        parse_and_validate_iso_datetime(&day_end, "day_end")?;
+
+    let parsed_day_start: chrono::DateTime<chrono::FixedOffset> =
+        chrono::DateTime::parse_from_rfc3339(&normalized_day_start)
+            .map_err(|error| format!("invalid day_start datetime: {error}"))?;
+
+    let parsed_day_end: chrono::DateTime<chrono::FixedOffset> =
+        chrono::DateTime::parse_from_rfc3339(&normalized_day_end)
+            .map_err(|error| format!("invalid day_end datetime: {error}"))?;
+
+    if parsed_day_end <= parsed_day_start {
+        return Err("day_end must be after day_start".to_string());
+    }
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT id, title, color, start, end
+            FROM day_plan_items
+            WHERE datetime(start) < datetime(?2)
+              AND datetime(end) > datetime(?1)
+            ORDER BY datetime(start) ASC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare get_day_plan_items_for_day: {error}"))?;
+
+    let item_iterator = statement
+        .query_map(
+            params![normalized_day_start, normalized_day_end],
+            |row| {
+                let item: DayPlanItemRecord = DayPlanItemRecord {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    color: row.get(2)?,
+                    start: row.get(3)?,
+                    end: row.get(4)?,
+                };
+
+                Ok(item)
+            },
+        )
+        .map_err(|error| format!("failed to query day plan items for day: {error}"))?;
+
+    let mut items: Vec<DayPlanItemRecord> = Vec::new();
+
+    for item_result in item_iterator {
+        let item: DayPlanItemRecord =
+            item_result.map_err(|error| format!("failed to read day plan item row: {error}"))?;
+
+        items.push(item);
+    }
+
+    Ok(items)
+}
+
+#[tauri::command]
+pub fn upsert_day_plan_item(
+    app: AppHandle,
+    item: UpsertDayPlanItemPayload,
+) -> Result<DayPlanItemRecord, String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let item_id: String = match item.id {
+        Some(value) if !value.trim().is_empty() => value,
+        _ => Uuid::new_v4().to_string(),
+    };
+
+    let title: Option<String> = match item.title {
+        Some(value) if !value.trim().is_empty() => {
+            Some(value.trim().chars().take(1024).collect())
+        }
+        _ => None,
+    };
+
+    let normalized_start: String = parse_and_validate_iso_datetime(&item.start, "start")?;
+    let normalized_end: String = parse_and_validate_iso_datetime(&item.end, "end")?;
+
+    let parsed_start: chrono::DateTime<chrono::FixedOffset> =
+        chrono::DateTime::parse_from_rfc3339(&normalized_start)
+            .map_err(|error| format!("invalid start datetime: {error}"))?;
+
+    let parsed_end: chrono::DateTime<chrono::FixedOffset> =
+        chrono::DateTime::parse_from_rfc3339(&normalized_end)
+            .map_err(|error| format!("invalid end datetime: {error}"))?;
+
+    if parsed_end <= parsed_start {
+        return Err("day plan item end must be after day plan item start".to_string());
+    }
+
+    let day_plan_item: DayPlanItemRecord = DayPlanItemRecord {
+        id: item_id,
+        title,
+        color: item.color,
+        start: normalized_start,
+        end: normalized_end,
+    };
+
+    connection
+        .execute(
+            "
+            INSERT INTO day_plan_items (
+                id,
+                title,
+                color,
+                start,
+                end
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                color = excluded.color,
+                start = excluded.start,
+                end = excluded.end
+            ",
+            params![
+                day_plan_item.id,
+                day_plan_item.title,
+                day_plan_item.color,
+                day_plan_item.start,
+                day_plan_item.end
+            ],
+        )
+        .map_err(|error| format!("failed to upsert day plan item: {error}"))?;
+
+    Ok(day_plan_item)
+}
+
+#[tauri::command]
+pub fn delete_day_plan_item(app: AppHandle, item_id: String) -> Result<(), String> {
+    let connection: Connection = open_connection(&app)?;
+
+    let deleted_rows: usize = connection
+        .execute(
+            "
+            DELETE FROM day_plan_items
+            WHERE id = ?1
+            ",
+            params![item_id],
+        )
+        .map_err(|error| format!("failed to delete day plan item: {error}"))?;
+
+    if deleted_rows == 0 {
+        return Err("day plan item not found".to_string());
+    }
+
+    Ok(())
 }
