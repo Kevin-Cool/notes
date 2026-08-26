@@ -3,6 +3,7 @@ import type { NodeViewRendererProps } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import type { Fragment as ProseMirrorFragment, Schema } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 declare module "@tiptap/core" {
     interface Commands<ReturnType> {
@@ -213,8 +214,8 @@ export const FastCopy = Node.create<FastCopyOptions>({
             contentElement.className = "fast-copy-text";
 
             iconButtonElement.addEventListener(
-                "mousedown",
-                (event: MouseEvent): void => {
+                "pointerdown",
+                (event: PointerEvent): void => {
                     event.preventDefault();
                     event.stopPropagation();
                 },
@@ -227,7 +228,10 @@ export const FastCopy = Node.create<FastCopyOptions>({
                     event.stopPropagation();
 
                     const textToCopy: string = node.textContent;
-                    void navigator.clipboard.writeText(textToCopy);
+
+                    void writeText(textToCopy).catch((error: unknown): void => {
+                        console.error("Failed to copy fast-copy text:", error);
+                    });
                 },
             );
 

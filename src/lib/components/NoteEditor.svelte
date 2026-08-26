@@ -1905,6 +1905,18 @@
         display: block;
         pointer-events: none;
     }
+
+    @media (hover: none), (pointer: coarse) {
+        :global(.tiptap-editor .fast-copy-icon) {
+            min-width: 2.75rem;
+            min-height: 2.75rem;
+        }
+
+        :global(.tiptap-editor .fast-copy-icon img) {
+            width: 1rem;
+            height: 1rem;
+        }
+    }
     .page {
         height: 100%;
         min-height: 0;

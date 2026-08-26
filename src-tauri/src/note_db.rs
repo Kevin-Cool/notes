@@ -256,7 +256,6 @@ fn open_connection(app: &AppHandle) -> Result<Connection, String> {
     Ok(connection)
 }
 
-
 #[tauri::command]
 pub fn get_note_by_id(app: AppHandle, note_id: String) -> Result<Option<NoteRecord>, String> {
     let connection: Connection = open_connection(&app)?;
@@ -353,7 +352,6 @@ pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
 
 #[tauri::command]
 pub fn delete_note(app: AppHandle, note_id: String) -> Result<(), String> {
-
     let connection: Connection = open_connection(&app)?;
 
     let deleted_rows: usize = connection
@@ -1052,8 +1050,8 @@ fn get_directory_size_bytes(path: &PathBuf) -> Result<i64, String> {
 
     let mut total_size: i64 = 0;
 
-    let entries: fs::ReadDir = fs::read_dir(path)
-        .map_err(|error| format!("failed to read directory size: {error}"))?;
+    let entries: fs::ReadDir =
+        fs::read_dir(path).map_err(|error| format!("failed to read directory size: {error}"))?;
 
     for entry_result in entries {
         let entry: fs::DirEntry =
@@ -1185,8 +1183,9 @@ fn delete_expired_dayplanner_todos(connection: &Connection) -> Result<(), String
                 }
             };
 
-        let completion_day: chrono::NaiveDate =
-            parsed_completion_date.with_timezone(&chrono::Local).date_naive();
+        let completion_day: chrono::NaiveDate = parsed_completion_date
+            .with_timezone(&chrono::Local)
+            .date_naive();
 
         if completion_day != today {
             todo_ids_to_delete.push(todo_id);
@@ -1225,8 +1224,9 @@ pub fn upsert_dayplanner_todo(
         match todo.completion_date {
             Some(value) if !value.trim().is_empty() => {
                 let parsed: chrono::DateTime<chrono::FixedOffset> =
-                    chrono::DateTime::parse_from_rfc3339(&value)
-                        .map_err(|error| format!("invalid completion_date ISO datetime: {error}"))?;
+                    chrono::DateTime::parse_from_rfc3339(&value).map_err(|error| {
+                        format!("invalid completion_date ISO datetime: {error}")
+                    })?;
 
                 Some(parsed.to_rfc3339())
             }
@@ -1329,8 +1329,8 @@ pub fn get_all_dayplanner_dailies(app: AppHandle) -> Result<Vec<DayplannerDailyR
     let mut dailies: Vec<DayplannerDailyRecord> = Vec::new();
 
     for dailies_result in dailies_iterator {
-        let daily: DayplannerDailyRecord =
-            dailies_result.map_err(|error| format!("failed to read dayplanner daily row: {error}"))?;
+        let daily: DayplannerDailyRecord = dailies_result
+            .map_err(|error| format!("failed to read dayplanner daily row: {error}"))?;
 
         dailies.push(daily);
     }
@@ -1384,8 +1384,9 @@ fn reset_completed_dayplanner_dailies(connection: &Connection) -> Result<(), Str
                 }
             };
 
-        let completion_day: chrono::NaiveDate =
-            parsed_completion_date.with_timezone(&chrono::Local).date_naive();
+        let completion_day: chrono::NaiveDate = parsed_completion_date
+            .with_timezone(&chrono::Local)
+            .date_naive();
 
         if completion_day != today {
             daily_ids_to_update.push(daily_id);
@@ -1429,8 +1430,9 @@ pub fn upsert_dayplanner_daily(
         match daily.completion_date {
             Some(value) if !value.trim().is_empty() => {
                 let parsed: chrono::DateTime<chrono::FixedOffset> =
-                    chrono::DateTime::parse_from_rfc3339(&value)
-                        .map_err(|error| format!("invalid completion_date ISO datetime: {error}"))?;
+                    chrono::DateTime::parse_from_rfc3339(&value).map_err(|error| {
+                        format!("invalid completion_date ISO datetime: {error}")
+                    })?;
 
                 Some(parsed.to_rfc3339())
             }
@@ -1511,10 +1513,8 @@ pub fn get_day_plan_items_for_day(
 ) -> Result<Vec<DayPlanItemRecord>, String> {
     let connection: Connection = open_connection(&app)?;
 
-    let normalized_day_start: String =
-        parse_and_validate_iso_datetime(&day_start, "day_start")?;
-    let normalized_day_end: String =
-        parse_and_validate_iso_datetime(&day_end, "day_end")?;
+    let normalized_day_start: String = parse_and_validate_iso_datetime(&day_start, "day_start")?;
+    let normalized_day_end: String = parse_and_validate_iso_datetime(&day_end, "day_end")?;
 
     let parsed_day_start: chrono::DateTime<chrono::FixedOffset> =
         chrono::DateTime::parse_from_rfc3339(&normalized_day_start)
@@ -1541,20 +1541,17 @@ pub fn get_day_plan_items_for_day(
         .map_err(|error| format!("failed to prepare get_day_plan_items_for_day: {error}"))?;
 
     let item_iterator = statement
-        .query_map(
-            params![normalized_day_start, normalized_day_end],
-            |row| {
-                let item: DayPlanItemRecord = DayPlanItemRecord {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    color: row.get(2)?,
-                    start: row.get(3)?,
-                    end: row.get(4)?,
-                };
+        .query_map(params![normalized_day_start, normalized_day_end], |row| {
+            let item: DayPlanItemRecord = DayPlanItemRecord {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                color: row.get(2)?,
+                start: row.get(3)?,
+                end: row.get(4)?,
+            };
 
-                Ok(item)
-            },
-        )
+            Ok(item)
+        })
         .map_err(|error| format!("failed to query day plan items for day: {error}"))?;
 
     let mut items: Vec<DayPlanItemRecord> = Vec::new();
@@ -1582,9 +1579,7 @@ pub fn upsert_day_plan_item(
     };
 
     let title: Option<String> = match item.title {
-        Some(value) if !value.trim().is_empty() => {
-            Some(value.trim().chars().take(1024).collect())
-        }
+        Some(value) if !value.trim().is_empty() => Some(value.trim().chars().take(1024).collect()),
         _ => None,
     };
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+    import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
     interface StorageUsageRecord {
         app_data_path: string;

@@ -9,6 +9,8 @@ use tauri::{
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -90,7 +92,6 @@ pub fn run() {
             note_db::get_app_setting,
             note_db::set_app_setting,
             note_db::get_storage_usage,
-            
             note_db::get_all_dayplanner_todos,
             note_db::upsert_dayplanner_todo,
             note_db::delete_dayplanner_todo,

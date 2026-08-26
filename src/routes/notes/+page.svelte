@@ -9,6 +9,8 @@
         upsertNote,
     } from "$lib/services/note-service";
     import { convertFileSrc } from "@tauri-apps/api/core";
+    import { inputCapabilities } from "$lib/stores/inputCapabilities";
+    import { longPress, type LongPressEvent } from "$lib/actions/longPress";
 
     type ContextMenuState = {
         noteId: string;
@@ -16,6 +18,14 @@
         y: number;
         deleteReadyAt: number;
     } | null;
+
+    type LongPressDetail = {
+        clientX: number;
+        clientY: number;
+        pointerType: string;
+    };
+
+    let suppressNextNoteClickId: string | null = $state(null);
 
     let notes: NoteRecord[] = $state([]);
     let searchValue: string = $state("");
@@ -175,20 +185,16 @@
         return contextMenu !== null && deleteCountdownMs === 0;
     }
 
-    function openContextMenu(event: MouseEvent, noteId: string): void {
-        event.preventDefault();
-
+    function openContextMenu(
+        noteId: string,
+        clientX: number,
+        clientY: number,
+    ): void {
         const menuWidth: number = 160;
-        const menuHeight: number = 48;
+        const menuHeight: number = 120;
 
-        const x: number = Math.min(
-            event.clientX,
-            window.innerWidth - menuWidth,
-        );
-        const y: number = Math.min(
-            event.clientY,
-            window.innerHeight - menuHeight,
-        );
+        const x: number = Math.min(clientX, window.innerWidth - menuWidth);
+        const y: number = Math.min(clientY, window.innerHeight - menuHeight);
 
         const deleteReadyAt: number = Date.now() + DELETE_DELAY_MS;
 
@@ -202,6 +208,41 @@
         startDeleteCountdown(deleteReadyAt);
     }
 
+    function handleContextMenu(event: MouseEvent, noteId: string): void {
+        event.preventDefault();
+
+        openContextMenu(noteId, event.clientX, event.clientY);
+    }
+
+    function handleLongPress(event: LongPressEvent, noteId: string): void {
+        if (event.pointerType === "mouse") {
+            return;
+        }
+
+        suppressNextNoteClickId = noteId;
+
+        openContextMenu(noteId, event.clientX, event.clientY);
+    }
+
+    function handleNoteClick(noteId: string): void {
+        if (suppressNextNoteClickId === noteId) {
+            suppressNextNoteClickId = null;
+            return;
+        }
+
+        openNote(noteId);
+    }
+
+    function handleActionsButton(event: MouseEvent, noteId: string): void {
+        event.stopPropagation();
+
+        const button: HTMLButtonElement =
+            event.currentTarget as HTMLButtonElement;
+
+        const bounds: DOMRect = button.getBoundingClientRect();
+
+        openContextMenu(noteId, bounds.right, bounds.bottom);
+    }
     function closeContextMenu(): void {
         contextMenu = null;
         clearDeleteCountdown();
@@ -428,29 +469,51 @@
     {:else}
         <div class="notes-grid">
             {#each filteredNotes as note (note.id)}
-                <button
-                    type="button"
-                    class="note-tile"
-                    onclick={() => openNote(note.id)}
-                    oncontextmenu={(event: MouseEvent) =>
-                        openContextMenu(event, note.id)}
-                    aria-label={`Open note ${note.name}`}
-                >
-                    <div class="note-thumbnail-frame">
-                        {#if notePreviewUrls[note.id]}
-                            <img
-                                class="note-thumbnail-image"
-                                src={notePreviewUrls[note.id]}
-                                alt={`Preview of ${note.name}`}
-                                loading="lazy"
-                            />
-                        {:else}
-                            <div class="note-thumbnail-placeholder"></div>
-                        {/if}
-                    </div>
+                <div class="note-tile-wrapper">
+                    <button
+                        type="button"
+                        class="note-tile"
+                        onclick={() => handleNoteClick(note.id)}
+                        oncontextmenu={(event: MouseEvent) =>
+                            handleContextMenu(event, note.id)}
+                        use:longPress={{
+                            duration: 500,
+                            movementTolerance: 10,
+                            onLongPress: (event: LongPressEvent): void =>
+                                handleLongPress(event, note.id),
+                        }}
+                        aria-label={`Open note ${note.name}`}
+                    >
+                        <div class="note-thumbnail-frame">
+                            {#if notePreviewUrls[note.id]}
+                                <img
+                                    class="note-thumbnail-image"
+                                    src={notePreviewUrls[note.id]}
+                                    alt={`Preview of ${note.name}`}
+                                    loading="lazy"
+                                />
+                            {:else}
+                                <div class="note-thumbnail-placeholder"></div>
+                            {/if}
+                        </div>
 
-                    <div class="note-name">{note.name}</div>
-                </button>
+                        <div class="note-name">
+                            {note.name}
+                        </div>
+                    </button>
+
+                    {#if $inputCapabilities.isTouchLike}
+                        <button
+                            type="button"
+                            class="note-actions-button"
+                            aria-label={`Actions for ${note.name}`}
+                            onclick={(event: MouseEvent) =>
+                                handleActionsButton(event, note.id)}
+                        >
+                            ⋮
+                        </button>
+                    {/if}
+                </div>
             {/each}
         </div>
     {/if}
@@ -695,19 +758,32 @@
         word-break: break-word;
     }
 
-    .note-tile:hover .note-thumbnail-placeholder {
-        transform: translateY(-0.125rem);
-        border-color: var(--color-border-hover);
-        background: linear-gradient(
-            135deg,
-            var(--color-surface-strong),
-            var(--color-button-bg-hover)
-        );
-        box-shadow: var(--shadow-soft-hover);
-    }
+    @media (hover: hover) and (pointer: fine) {
+        .note-tile:hover .note-thumbnail-placeholder {
+            transform: translateY(-0.125rem);
+            border-color: var(--color-border-hover);
+            background: linear-gradient(
+                135deg,
+                var(--color-surface-strong),
+                var(--color-button-bg-hover)
+            );
+            box-shadow: var(--shadow-soft-hover);
+        }
 
-    .note-tile:hover .note-name {
-        color: var(--color-heading);
+        .note-tile:hover .note-name {
+            color: var(--color-heading);
+        }
+
+        .note-tile:hover .note-thumbnail-frame {
+            transform: translateY(-0.125rem);
+            border-color: var(--color-border-hover);
+            background: linear-gradient(
+                135deg,
+                var(--color-surface-strong),
+                var(--color-button-bg-hover)
+            );
+            box-shadow: var(--shadow-soft-hover);
+        }
     }
 
     .note-tile:focus-visible {
@@ -876,5 +952,39 @@
         outline: none;
         border-color: var(--color-accent);
         box-shadow: 0 0 0 2px var(--color-editor-link-bg);
+    }
+
+    .note-tile-wrapper {
+        position: relative;
+        min-width: 0;
+    }
+
+    .note-actions-button {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 2.75rem;
+        height: 2.75rem;
+
+        padding: 0;
+
+        border: 0.0625rem solid var(--color-border);
+        border-radius: var(--radius-button);
+
+        background: var(--color-surface-strong);
+        color: var(--color-text-strong);
+
+        font-size: 1.4rem;
+        line-height: 1;
+
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+
+        z-index: 2;
     }
 </style>

@@ -1,9 +1,20 @@
 <script lang="ts">
+    import { platform, type Platform } from "@tauri-apps/plugin-os";
+
     type HotkeyInfo = {
         keys: string[];
         action: string;
         scope: string;
     };
+
+    const currentPlatform: Platform = platform();
+
+    const isDesktop: boolean =
+        currentPlatform === "windows" ||
+        currentPlatform === "macos" ||
+        currentPlatform === "linux";
+
+    const modifierKey: string = currentPlatform === "macos" ? "Cmd" : "Ctrl";
 
     const hotkeys: HotkeyInfo[] = [
         {
@@ -12,17 +23,23 @@
             scope: "App window",
         },
         {
-            keys: ["Ctrl / Cmd + Alt + N"],
+            keys: [`${modifierKey} + Alt + N`],
             action: "Toggle the custom window bar",
             scope: "Global",
         },
         {
-            keys: ["Ctrl / Cmd + Shift + 1", "Ctrl / Cmd + Alt + Numpad 1"],
+            keys: [
+                `${modifierKey} + Shift + 1`,
+                `${modifierKey} + Alt + Numpad 1`,
+            ],
             action: "Show or minimize the app",
             scope: "Global",
         },
         {
-            keys: ["Ctrl / Cmd + Shift + 2", "Ctrl / Cmd + Alt + Numpad 2"],
+            keys: [
+                `${modifierKey} + Shift + 2`,
+                `${modifierKey} + Alt + Numpad 2`,
+            ],
             action: "Snap the app to the right-most monitor",
             scope: "Global",
         },
@@ -35,22 +52,32 @@
         <p>Shortcuts currently registered by the app.</p>
     </div>
 
-    <div class="hotkey-list">
-        {#each hotkeys as hotkey}
-            <div class="hotkey-row">
-                <div class="hotkey-main">
-                    <div class="hotkey-keys">
-                        {#each hotkey.keys as key}
-                            <kbd>{key}</kbd>
-                        {/each}
+    {#if isDesktop}
+        <div class="hotkey-list">
+            {#each hotkeys as hotkey}
+                <div class="hotkey-row">
+                    <div class="hotkey-main">
+                        <div class="hotkey-keys">
+                            {#each hotkey.keys as key}
+                                <kbd>{key}</kbd>
+                            {/each}
+                        </div>
+                        <span>{hotkey.scope}</span>
                     </div>
-                    <span>{hotkey.scope}</span>
-                </div>
 
-                <p>{hotkey.action}</p>
-            </div>
-        {/each}
-    </div>
+                    <p>{hotkey.action}</p>
+                </div>
+            {/each}
+        </div>
+    {:else}
+        <div class="unsupported-message">
+            <p>
+                This app is running on
+                <strong>{currentPlatform}</strong>. Keyboard shortcuts are
+                currently only available in the desktop version.
+            </p>
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -114,5 +141,19 @@
             grid-template-columns: 1fr;
             gap: 0.6rem;
         }
+    }
+    
+    .unsupported-message {
+        padding: 1rem 1.1rem;
+    }
+
+    .unsupported-message p {
+        margin: 0;
+        color: var(--color-text-muted);
+        line-height: 1.5;
+    }
+
+    .unsupported-message strong {
+        color: var(--color-text-strong);
     }
 </style>

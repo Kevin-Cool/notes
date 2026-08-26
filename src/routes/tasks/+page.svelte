@@ -38,6 +38,8 @@
         getViewingDateForViewChange,
     } from "$lib/utils/task-view-utils";
 
+    import { inputCapabilities } from "$lib/stores/inputCapabilities";
+
     type TaskMoveDetail = {
         task: CalendarTask;
         start: Date;
@@ -182,6 +184,10 @@
         selectedTask = null;
         createDialogStartDate = startDate ? new Date(startDate) : null;
         isTaskDialogOpen = true;
+    }
+
+    function handleMobileCreate(): void {
+        openCreateDialog(viewingDate);
     }
 
     function openUpdateDialog(task: CalendarTask): void {
@@ -338,7 +344,7 @@
         if (selectedTask === null || !selectedTask.id) {
             return;
         }
-        
+
         await deleteCalendarTask(selectedTask.id);
 
         tasks = tasks.filter(
@@ -406,6 +412,18 @@
         }}
     />
 
+    {#if $inputCapabilities.isTouchLike}
+        <button
+            type="button"
+            class="mobile-create-task-button"
+            onclick={handleMobileCreate}
+            aria-label="Create task"
+            title="Create task"
+        >
+            +
+        </button>
+    {/if}
+
     <TaskViewRenderer
         bind:taskWeekViewElement
         {currentView}
@@ -462,11 +480,44 @@
 
 <style>
     .tasks-page {
+        position: relative;
+
         height: 100%;
         min-height: 0;
+
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
+
         overflow: visible;
         background: var(--color-bg-top);
+    }
+    
+    .mobile-create-task-button {
+        position: absolute;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 20;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 3.25rem;
+        height: 3.25rem;
+
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+
+        background: var(--color-accent);
+        color: white;
+
+        font-family: inherit;
+        font-size: 1.75rem;
+        font-weight: 500;
+        line-height: 1;
+
+        box-shadow: var(--shadow-float);
+        cursor: pointer;
     }
 </style>
