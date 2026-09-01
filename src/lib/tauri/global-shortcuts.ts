@@ -6,6 +6,7 @@ import {
 
 import { toggleCustomChrome, toggleOpenOrMinimize } from "$lib/tauri/window-actions";
 import { snapToRightMostMonitorTopLeft } from "$lib/tauri/window-positioning";
+import { isDesktopPlatform } from "$lib/device/platform";
 
 type ShortcutEvent = {
 	state: "Pressed" | "Released";
@@ -64,44 +65,52 @@ const shortcuts: ShortcutDefinition[] = [
 let isRegisteredByApp: boolean = false;
 
 export function registerGlobalShortcuts(): () => void {
-	void registerShortcutsOnce();
+    if (!isDesktopPlatform) {
+        return (): void => {};
+    }
 
-	return (): void => {
-		void unregisterGlobalShortcuts();
-	};
+    void registerShortcutsOnce();
+
+    return (): void => {
+        void unregisterGlobalShortcuts();
+    };
 }
 
 async function registerShortcutsOnce(): Promise<void> {
-	if (isRegisteredByApp) {
-		return;
-	}
+    if (!isDesktopPlatform || isRegisteredByApp) {
+        return;
+    }
 
-	try {
-		for (const shortcut of shortcuts) {
-			const alreadyRegistered: boolean = await isRegistered(shortcut.key);
+    try {
+        for (const shortcut of shortcuts) {
+            const alreadyRegistered: boolean = await isRegistered(shortcut.key);
 
-			if (alreadyRegistered) {
-				await unregister(shortcut.key);
-			}
+            if (alreadyRegistered) {
+                await unregister(shortcut.key);
+            }
 
-			await register(shortcut.key, shortcut.handler);
-		}
+            await register(shortcut.key, shortcut.handler);
+        }
 
-		isRegisteredByApp = true;
-	} catch (error: unknown) {
-		console.error("Failed to register global shortcuts:", error);
-	}
+        isRegisteredByApp = true;
+    } catch (error: unknown) {
+        console.error("Failed to register global shortcuts:", error);
+    }
 }
 
 async function unregisterGlobalShortcuts(): Promise<void> {
-	if (!isRegisteredByApp) {
-		return;
-	}
+    if (!isDesktopPlatform || !isRegisteredByApp) {
+        return;
+    }
 
-	try {
-		await unregister(shortcuts.map((shortcut: ShortcutDefinition): string => shortcut.key));
-		isRegisteredByApp = false;
-	} catch (error: unknown) {
-		console.error("Failed to unregister global shortcuts:", error);
-	}
+    try {
+        const shortcutKeys: string[] = shortcuts.map(
+            (shortcut: ShortcutDefinition): string => shortcut.key
+        );
+
+        await unregister(shortcutKeys);
+        isRegisteredByApp = false;
+    } catch (error: unknown) {
+        console.error("Failed to unregister global shortcuts:", error);
+    }
 }

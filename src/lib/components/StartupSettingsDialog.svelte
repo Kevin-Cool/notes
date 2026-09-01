@@ -6,11 +6,17 @@
         isAutostartRegistered,
     } from "$lib/services/settings-service";
 
+    import { isDesktopPlatform } from "$lib/device/platform";
+
     let isOpen: boolean = $state(false);
     let isSubmitting: boolean = $state(false);
     let errorMessage: string = $state("");
 
     async function checkStartupSettings(): Promise<void> {
+        if (!isDesktopPlatform) {
+            return;
+        }
+
         try {
             const isRegistered: boolean = await isAutostartRegistered();
 

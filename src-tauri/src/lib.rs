@@ -1,20 +1,27 @@
 mod note_db;
 
+use tauri::Manager;
+
+#[cfg(desktop)]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder: tauri::Builder<tauri::Wry> = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_opener::init());
+
+    #[cfg(desktop)]
+    let builder: tauri::Builder<tauri::Wry> = builder
         .plugin(tauri_plugin_autostart::Builder::new().build())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
+    builder
+        .setup(|app: &mut tauri::App| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -23,52 +30,56 @@ pub fn run() {
                 )?;
             }
 
-            let show_item: MenuItem<tauri::Wry> =
-                MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+            #[cfg(desktop)]
+            {
+                let show_item: MenuItem<tauri::Wry> =
+                    MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
 
-            let quit_item: MenuItem<tauri::Wry> =
-                MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+                let quit_item: MenuItem<tauri::Wry> =
+                    MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-            let menu: Menu<tauri::Wry> = Menu::with_items(app, &[&show_item, &quit_item])?;
+                let menu: Menu<tauri::Wry> =
+                    Menu::with_items(app, &[&show_item, &quit_item])?;
 
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| {
-                    let Some(window) = app.get_webview_window("main") else {
-                        return;
-                    };
-
-                    match event.id.as_ref() {
-                        "show" => {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        _ => {}
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-
+                TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app: &tauri::AppHandle, event| {
                         let Some(window) = app.get_webview_window("main") else {
                             return;
                         };
 
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                })
-                .build(app)?;
+                        match event.id.as_ref() {
+                            "show" => {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                            "quit" => {
+                                app.exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app: &tauri::AppHandle = tray.app_handle();
+
+                            let Some(window) = app.get_webview_window("main") else {
+                                return;
+                            };
+
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    })
+                    .build(app)?;
+            }
 
             Ok(())
         })

@@ -1,18 +1,11 @@
 <script lang="ts">
-    import { platform, type Platform } from "@tauri-apps/plugin-os";
+    import { currentPlatform, isDesktopPlatform } from "$lib/device/platform";
 
     type HotkeyInfo = {
         keys: string[];
         action: string;
         scope: string;
     };
-
-    const currentPlatform: Platform = platform();
-
-    const isDesktop: boolean =
-        currentPlatform === "windows" ||
-        currentPlatform === "macos" ||
-        currentPlatform === "linux";
 
     const modifierKey: string = currentPlatform === "macos" ? "Cmd" : "Ctrl";
 
@@ -52,7 +45,7 @@
         <p>Shortcuts currently registered by the app.</p>
     </div>
 
-    {#if isDesktop}
+    {#if isDesktopPlatform}
         <div class="hotkey-list">
             {#each hotkeys as hotkey}
                 <div class="hotkey-row">
@@ -142,7 +135,7 @@
             gap: 0.6rem;
         }
     }
-    
+
     .unsupported-message {
         padding: 1rem 1.1rem;
     }

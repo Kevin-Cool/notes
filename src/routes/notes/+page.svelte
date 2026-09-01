@@ -19,12 +19,6 @@
         deleteReadyAt: number;
     } | null;
 
-    type LongPressDetail = {
-        clientX: number;
-        clientY: number;
-        pointerType: string;
-    };
-
     let suppressNextNoteClickId: string | null = $state(null);
 
     let notes: NoteRecord[] = $state([]);
@@ -501,18 +495,6 @@
                             {note.name}
                         </div>
                     </button>
-
-                    {#if $inputCapabilities.isTouchLike}
-                        <button
-                            type="button"
-                            class="note-actions-button"
-                            aria-label={`Actions for ${note.name}`}
-                            onclick={(event: MouseEvent) =>
-                                handleActionsButton(event, note.id)}
-                        >
-                            ⋮
-                        </button>
-                    {/if}
                 </div>
             {/each}
         </div>

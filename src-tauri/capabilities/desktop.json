@@ -1,15 +1,38 @@
 {
-  "identifier": "desktop-capability",
-  "platforms": [
-    "macOS",
-    "windows",
-    "linux"
-  ],
-  "windows": [
-    "main"
-  ],
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Desktop-only permissions",
+  "windows": ["main"],
+  "platforms": ["windows", "linux", "macOS"],
   "permissions": [
-    "global-shortcut:default",
-    "autostart:default"
+    "core:window:allow-is-decorated",
+    "core:window:allow-set-decorations",
+
+    "core:window:allow-set-always-on-top",
+
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "core:window:allow-is-minimized",
+
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+
+    "core:window:allow-start-dragging",
+
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-outer-size",
+    "core:window:allow-available-monitors",
+
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister"
   ]
 }
