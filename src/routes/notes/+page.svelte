@@ -9,8 +9,8 @@
         upsertNote,
     } from "$lib/services/note-service";
     import { convertFileSrc } from "@tauri-apps/api/core";
-    import { inputCapabilities } from "$lib/stores/inputCapabilities";
     import { longPress, type LongPressEvent } from "$lib/actions/longPress";
+    import { isMobilePlatform } from "$lib/device/platform";
 
     type ContextMenuState = {
         noteId: string;
@@ -161,23 +161,28 @@
 
         const updateCountdown = (): void => {
             const remainingMs: number = Math.max(0, deleteReadyAt - Date.now());
+
             deleteCountdownMs = remainingMs;
 
-            if (remainingMs === 0) {
-                clearDeleteCountdown();
+            if (remainingMs <= 0 && deleteCountdownIntervalId !== null) {
+                window.clearInterval(deleteCountdownIntervalId);
+                deleteCountdownIntervalId = null;
             }
         };
 
         updateCountdown();
 
-        deleteCountdownIntervalId = window.setInterval((): void => {
-            updateCountdown();
-        }, 50);
+        if (deleteCountdownMs > 0) {
+            deleteCountdownIntervalId = window.setInterval(
+                updateCountdown,
+                100,
+            );
+        }
     }
 
-    function isDeleteEnabled(): boolean {
-        return contextMenu !== null && deleteCountdownMs === 0;
-    }
+    const isDeleteReady: boolean = $derived(
+        contextMenu !== null && deleteCountdownMs <= 0,
+    );
 
     function openContextMenu(
         noteId: string,
@@ -205,6 +210,11 @@
     function handleContextMenu(event: MouseEvent, noteId: string): void {
         event.preventDefault();
 
+        // Android/iOS use our long-press action instead.
+        if (isMobilePlatform) {
+            return;
+        }
+
         openContextMenu(noteId, event.clientX, event.clientY);
     }
 
@@ -227,23 +237,13 @@
         openNote(noteId);
     }
 
-    function handleActionsButton(event: MouseEvent, noteId: string): void {
-        event.stopPropagation();
-
-        const button: HTMLButtonElement =
-            event.currentTarget as HTMLButtonElement;
-
-        const bounds: DOMRect = button.getBoundingClientRect();
-
-        openContextMenu(noteId, bounds.right, bounds.bottom);
-    }
     function closeContextMenu(): void {
         contextMenu = null;
         clearDeleteCountdown();
     }
 
     async function deleteSelectedNote(): Promise<void> {
-        if (!contextMenu || !isDeleteEnabled()) {
+        if (!contextMenu || !isDeleteReady) {
             return;
         }
 
@@ -426,7 +426,6 @@
 </script>
 
 <svelte:window
-    onclick={closeContextMenu}
     onkeydown={(event: KeyboardEvent): void => {
         if (event.key === "Escape") {
             closeContextMenu();
@@ -436,7 +435,23 @@
 
 <div class="notes-page">
     <div class="page-header">
-        <h1 class="page-title">Notes</h1>
+        <div class="page-title-row">
+            <h1 class="page-title">Notes</h1>
+
+            {#if isMobilePlatform}
+                <button
+                    type="button"
+                    class="mobile-settings-icon"
+                    aria-label="Settings"
+                    title="Settings"
+                    onclick={(): void => {
+                        void goto("/settings");
+                    }}
+                >
+                    ⚙
+                </button>
+            {/if}
+        </div>
 
         <div class="search-bar-row">
             <div class="search-bar-wrapper">
@@ -485,6 +500,7 @@
                                     src={notePreviewUrls[note.id]}
                                     alt={`Preview of ${note.name}`}
                                     loading="lazy"
+                                    draggable="false"
                                 />
                             {:else}
                                 <div class="note-thumbnail-placeholder"></div>
@@ -502,54 +518,57 @@
 
     {#if contextMenu}
         <div
-            class="context-menu"
-            style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
-            onclick={(event: MouseEvent): void => event.stopPropagation()}
-            onkeydown={(event) => {
-                if (event.key === "Enter") {
-                    event.preventDefault();
-                    deleteSelectedNote();
-                }
-            }}
-            role="button"
-            tabindex="0"
+            class="context-menu-backdrop"
+            role="presentation"
+            onpointerdown={closeContextMenu}
         >
-            <button
-                type="button"
-                class="context-menu-item"
-                onclick={() => {
-                    if (!contextMenu) {
-                        return;
-                    }
-
-                    void openRenameDialog(contextMenu.noteId);
+            <div
+                class="context-menu"
+                style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
+                onpointerdown={(event: PointerEvent): void => {
+                    event.stopPropagation();
                 }}
+                role="button"
+                tabindex="0"
             >
-                Rename
-            </button>
+                <button
+                    type="button"
+                    class="context-menu-item"
+                    onclick={() => {
+                        if (!contextMenu) {
+                            return;
+                        }
 
-            <button
-                type="button"
-                class="context-menu-item danger"
-                class:disabled={!isDeleteEnabled()}
-                onclick={deleteSelectedNote}
-                disabled={!isDeleteEnabled()}
-            >
-                {#if !isDeleteEnabled()}
-                    Delete ({(deleteCountdownMs / 1000).toFixed(1)}s)
-                {:else}
-                    Delete
-                {/if}
-            </button>
+                        void openRenameDialog(contextMenu.noteId);
+                    }}
+                >
+                    Rename
+                </button>
 
-            {#if !isDeleteEnabled()}
-                <div class="context-menu-progress">
+                <button
+                    type="button"
+                    class="context-menu-item danger"
+                    class:delete-locked={!isDeleteReady}
+                    onclick={deleteSelectedNote}
+                >
+                    {isDeleteReady
+                        ? "Delete"
+                        : `Delete (${(deleteCountdownMs / 1000).toFixed(1)}s)`}
+                </button>
+
+                <div class="context-menu-progress" class:hidden={isDeleteReady}>
                     <div
                         class="context-menu-progress-fill"
-                        style={`transform: scaleX(${1 - deleteCountdownMs / DELETE_DELAY_MS});`}
+                        style={`transform: scaleX(${Math.max(
+                            0,
+                            Math.min(
+                                1,
+                                1 - deleteCountdownMs / DELETE_DELAY_MS,
+                            ),
+                        )});`}
                     ></div>
                 </div>
-            {/if}
+            </div>
         </div>
     {/if}
 </div>
@@ -710,6 +729,11 @@
         text-align: left;
         cursor: pointer;
         color: inherit;
+
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
     }
 
     .note-thumbnail-placeholder {
@@ -808,17 +832,17 @@
         );
         box-shadow: var(--shadow-soft-hover);
     }
+
     .context-menu {
         position: fixed;
         z-index: 1000;
         min-width: 10rem;
         padding: 0.375rem;
+
         border: 0.0625rem solid var(--color-border);
         border-radius: var(--radius-float);
         background: var(--color-surface-strong);
         box-shadow: var(--shadow-soft-hover);
-        backdrop-filter: blur(var(--blur-surface));
-        -webkit-backdrop-filter: blur(var(--blur-surface));
     }
 
     .context-menu-item {
@@ -941,32 +965,64 @@
         min-width: 0;
     }
 
-    .note-actions-button {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
+    .context-menu-item.delete-locked {
+        opacity: 0.55;
+    }
 
+    .context-menu-progress.hidden {
+        visibility: hidden;
+    }
+
+    .context-menu-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+    }
+
+    .context-menu {
+        position: fixed;
+        z-index: 1000;
+    }
+
+    .note-tile,
+    .context-menu {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    .note-name {
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    .note-tile {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .page-title-row {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
 
-        width: 2.75rem;
-        height: 2.75rem;
-
+    .mobile-settings-icon {
         padding: 0;
 
-        border: 0.0625rem solid var(--color-border);
-        border-radius: var(--radius-button);
+        border: none;
+        background: transparent;
 
-        background: var(--color-surface-strong);
-        color: var(--color-text-strong);
+        color: var(--color-accent);
 
-        font-size: 1.4rem;
+        font: inherit;
+        font-size: 1.35rem;
         line-height: 1;
 
-        box-shadow: var(--shadow-soft);
         cursor: pointer;
 
-        z-index: 2;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
     }
 </style>

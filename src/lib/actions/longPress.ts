@@ -7,6 +7,7 @@ export interface LongPressEvent {
 export interface LongPressOptions {
     duration?: number;
     movementTolerance?: number;
+    triggerOnRelease?: boolean;
     onLongPress: (event: LongPressEvent) => void;
 }
 
@@ -24,13 +25,19 @@ export function longPress(
 } {
     let duration: number = options.duration ?? 500;
     let movementTolerance: number = options.movementTolerance ?? 10;
-    let onLongPress: (event: LongPressEvent) => void = options.onLongPress;
+    let triggerOnRelease: boolean = options.triggerOnRelease ?? false;
+
+    let onLongPress: (event: LongPressEvent) => void =
+        options.onLongPress;
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     let startPosition: PointerPosition | null = null;
     let activePointerId: number | null = null;
 
-    const clearTimer = (): void => {
+    let longPressReached: boolean = false;
+    let pendingEvent: LongPressEvent | null = null;
+
+    const reset = (): void => {
         if (timer !== null) {
             clearTimeout(timer);
             timer = null;
@@ -38,12 +45,16 @@ export function longPress(
 
         startPosition = null;
         activePointerId = null;
+        longPressReached = false;
+        pendingEvent = null;
     };
 
     const handlePointerDown = (event: PointerEvent): void => {
         if (event.pointerType === "mouse" && event.button !== 0) {
             return;
         }
+
+        reset();
 
         activePointerId = event.pointerId;
 
@@ -52,14 +63,22 @@ export function longPress(
             y: event.clientY,
         };
 
+        pendingEvent = {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            pointerType: event.pointerType,
+        };
+
         timer = setTimeout((): void => {
             timer = null;
+            longPressReached = true;
 
-            onLongPress({
-                clientX: event.clientX,
-                clientY: event.clientY,
-                pointerType: event.pointerType,
-            });
+            if (!triggerOnRelease && pendingEvent !== null) {
+                const longPressEvent: LongPressEvent = pendingEvent;
+
+                reset();
+                onLongPress(longPressEvent);
+            }
         }, duration);
     };
 
@@ -71,40 +90,64 @@ export function longPress(
             return;
         }
 
-        const distanceX: number =
-            Math.abs(event.clientX - startPosition.x);
+        const distanceX: number = Math.abs(
+            event.clientX - startPosition.x,
+        );
 
-        const distanceY: number =
-            Math.abs(event.clientY - startPosition.y);
+        const distanceY: number = Math.abs(
+            event.clientY - startPosition.y,
+        );
 
         if (
             distanceX > movementTolerance ||
             distanceY > movementTolerance
         ) {
-            clearTimer();
+            reset();
         }
     };
 
-    const handlePointerEnd = (): void => {
-        clearTimer();
+    const handlePointerUp = (event: PointerEvent): void => {
+        if (activePointerId !== event.pointerId) {
+            return;
+        }
+
+        if (
+            triggerOnRelease &&
+            longPressReached &&
+            pendingEvent !== null
+        ) {
+            const longPressEvent: LongPressEvent = pendingEvent;
+
+            reset();
+            onLongPress(longPressEvent);
+
+            return;
+        }
+
+        reset();
+    };
+
+    const handlePointerCancel = (): void => {
+        reset();
     };
 
     node.addEventListener("pointerdown", handlePointerDown);
     node.addEventListener("pointermove", handlePointerMove);
-    node.addEventListener("pointerup", handlePointerEnd);
-    node.addEventListener("pointercancel", handlePointerEnd);
+    node.addEventListener("pointerup", handlePointerUp);
+    node.addEventListener("pointercancel", handlePointerCancel);
 
     return {
         update(newOptions: LongPressOptions): void {
             duration = newOptions.duration ?? 500;
             movementTolerance =
                 newOptions.movementTolerance ?? 10;
-
+            triggerOnRelease =
+                newOptions.triggerOnRelease ?? false;
             onLongPress = newOptions.onLongPress;
         },
 
         destroy(): void {
-            clearTimer();
+            reset();
 
             node.removeEventListener(
                 "pointerdown",
@@ -118,12 +161,12 @@ export function longPress(
 
             node.removeEventListener(
                 "pointerup",
-                handlePointerEnd,
+                handlePointerUp,
             );
 
             node.removeEventListener(
                 "pointercancel",
-                handlePointerEnd,
+                handlePointerCancel,
             );
         },
     };

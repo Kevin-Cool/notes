@@ -6,6 +6,8 @@
     import WindowDragHandle from "./WindowDragHandle.svelte";
     import { registerGlobalShortcuts } from "$lib/tauri/global-shortcuts";
     import { registerDoubleCtrlTap } from "$lib/utils/register-double-ctrl-tap";
+    import { isMobilePlatform } from "$lib/device/platform";
+    import MobileNav from "./MobileNav.svelte";
 
     let { children } = $props();
 
@@ -21,7 +23,19 @@
 </script>
 
 <div class="window-shell">
-    {#if uiState.showCustomBar}
+    {#if isMobilePlatform}
+        <div class="mobile-layout">
+            <main class="content mobile-content">
+                <div class="content-inner">
+                    {@render children()}
+                </div>
+            </main>
+
+            <div class="mobile-nav">
+                <MobileNav />
+            </div>
+        </div>
+    {:else if uiState.showCustomBar}
         <TitleBar />
 
         <div class="app-layout">
@@ -95,5 +109,55 @@
         margin: 0 0 8px;
         color: var(--color-text-muted);
         line-height: 1.5;
+    }
+
+    .mobile-layout {
+        --mobile-nav-height: 4rem;
+
+        position: relative;
+
+        width: 100%;
+        height: 100%;
+
+        min-width: 0;
+        min-height: 0;
+
+        overflow: hidden;
+    }
+
+    .mobile-content {
+        height: 100%;
+        min-height: 0;
+
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        padding-top: env(safe-area-inset-top);
+
+        padding-bottom: calc(
+            var(--mobile-nav-height) + env(safe-area-inset-bottom) + 1rem
+        );
+
+        box-sizing: border-box;
+    }
+
+    .mobile-nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+
+        height: calc(
+            var(--mobile-nav-height) +
+            env(safe-area-inset-bottom)
+        );
+
+        padding-bottom: env(safe-area-inset-bottom);
+        box-sizing: border-box;
+
+        background: var(--color-nav-bg);
+        border-top: 1px solid var(--color-border);
+
+        z-index: 100;
     }
 </style>

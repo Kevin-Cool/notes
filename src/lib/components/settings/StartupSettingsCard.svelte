@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { currentPlatform, isDesktopPlatform } from "$lib/device/platform";
     import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 
     let isAutostartEnabled: boolean = $state(false);
@@ -52,40 +53,51 @@
         <p>Choose whether Notes starts automatically with your computer.</p>
     </div>
 
-    <div class="startup-content">
-        <div class="settings-card-info">
-            <strong>
-                {isAutostartEnabled
-                    ? "Startup is enabled"
-                    : "Startup is disabled"}
-            </strong>
+    {#if isDesktopPlatform}
+        <div class="startup-content">
+            <div class="settings-card-info">
+                <strong>
+                    {isAutostartEnabled
+                        ? "Startup is enabled"
+                        : "Startup is disabled"}
+                </strong>
 
-            <span>
-                {isAutostartEnabled
-                    ? "Notes is registered as a startup app."
-                    : "Notes will not start automatically."}
-            </span>
+                <span>
+                    {isAutostartEnabled
+                        ? "Notes is registered as a startup app."
+                        : "Notes will not start automatically."}
+                </span>
 
-            {#if errorMessage}
-                <span class="setting-error">{errorMessage}</span>
-            {/if}
+                {#if errorMessage}
+                    <span class="setting-error">{errorMessage}</span>
+                {/if}
+            </div>
+
+            <button
+                type="button"
+                class="startup-button"
+                onclick={() => void toggleAutostart()}
+                disabled={isSavingAutostart}
+            >
+                {#if isSavingAutostart}
+                    Saving...
+                {:else if isAutostartEnabled}
+                    Disable startup
+                {:else}
+                    Enable startup
+                {/if}
+            </button>
         </div>
-
-        <button
-            type="button"
-            class="startup-button"
-            onclick={() => void toggleAutostart()}
-            disabled={isSavingAutostart}
-        >
-            {#if isSavingAutostart}
-                Saving...
-            {:else if isAutostartEnabled}
-                Disable startup
-            {:else}
-                Enable startup
-            {/if}
-        </button>
-    </div>
+    {:else}
+        <div class="unsupported-message">
+            <p>
+                This app is running on
+                <strong>{currentPlatform}</strong>. Auto start is
+                currently only available in the desktop version.
+            </p>
+        </div>
+    {/if}
+  
 </div>
 
 <style>
@@ -138,5 +150,19 @@
             align-items: stretch;
             flex-direction: column;
         }
+    }
+    
+    .unsupported-message {
+        padding: 1rem 1.1rem;
+    }
+
+    .unsupported-message p {
+        margin: 0;
+        color: var(--color-text-muted);
+        line-height: 1.5;
+    }
+
+    .unsupported-message strong {
+        color: var(--color-text-strong);
     }
 </style>

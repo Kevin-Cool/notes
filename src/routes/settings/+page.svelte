@@ -3,6 +3,7 @@
     import StartupSettingsCard from "$lib/components/settings/StartupSettingsCard.svelte";
     import StorageSettingsCard from "$lib/components/settings/StorageSettingsCard.svelte";
     import ThemeSettingsCard from "$lib/components/settings/ThemeSettingsCard.svelte";
+    import { isDesktopPlatform } from "$lib/device/platform";
     import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
     const appWindow = getCurrentWebviewWindow();
@@ -37,6 +38,12 @@
             </button>
         </div>
     </div>
+
+    
+    {#if !isDesktopPlatform}
+    <div class="fake-div">   </div>
+    {/if}
+
 </section>
 
 <style>
@@ -99,5 +106,9 @@
         .settings-page {
             padding: 1rem;
         }
+    }
+
+    .fake-div{
+        min-height:1rem
     }
 </style>
