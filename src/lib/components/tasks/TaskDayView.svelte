@@ -72,6 +72,11 @@
     let dragPreview: DragPreview | null = $state(null);
     let suppressClickForTaskId: string | null = $state(null);
 
+    let blockedDragPointerId: number | null = null;
+
+    let suppressContextMenuForTaskId: string | null = $state(null);
+    let suppressContextMenuTimerId: number | null = null;
+
     const viewingDateKey: string = $derived(
         `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
     );
@@ -95,6 +100,17 @@
     ): void {
         event.preventDefault();
         event.stopPropagation();
+
+        if (suppressContextMenuForTaskId === task.id) {
+            suppressContextMenuForTaskId = null;
+            return;
+        }
+
+        if (dragState) {
+            blockedDragPointerId = dragState.pointerId;
+        }
+
+        cancelDrag();
 
         onTaskContextMenu?.({
             x: event.clientX,
@@ -380,7 +396,24 @@
         };
     }
 
+    function suppressNextContextMenu(taskId: string): void {
+        suppressContextMenuForTaskId = taskId;
+
+        if (suppressContextMenuTimerId !== null) {
+            window.clearTimeout(suppressContextMenuTimerId);
+        }
+
+        suppressContextMenuTimerId = window.setTimeout((): void => {
+            suppressContextMenuForTaskId = null;
+            suppressContextMenuTimerId = null;
+        }, 1000);
+    }
+
     function handleWindowPointerMove(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }
@@ -391,6 +424,8 @@
 
         event.preventDefault();
 
+        suppressNextContextMenu(dragState.task.id);
+
         const nextStartMinute: number = getDraggedTaskStartMinute(
             event.clientY,
             dragState.taskDurationMinutes,
@@ -398,6 +433,7 @@
 
         const nextStart: Date = buildDateFromMinuteOfDay(nextStartMinute);
         const nextEnd: Date = new Date(nextStart);
+
         nextEnd.setMinutes(
             nextEnd.getMinutes() + dragState.taskDurationMinutes,
         );
@@ -413,6 +449,11 @@
     }
 
     async function handleWindowPointerUp(event: PointerEvent): Promise<void> {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }
@@ -449,6 +490,11 @@
     }
 
     function handleWindowPointerCancel(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }

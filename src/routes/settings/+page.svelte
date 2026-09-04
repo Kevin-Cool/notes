@@ -39,11 +39,6 @@
         </div>
     </div>
 
-    
-    {#if !isDesktopPlatform}
-    <div class="fake-div">   </div>
-    {/if}
-
 </section>
 
 <style>
@@ -106,9 +101,5 @@
         .settings-page {
             padding: 1rem;
         }
-    }
-
-    .fake-div{
-        min-height:1rem
     }
 </style>

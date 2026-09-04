@@ -22,6 +22,9 @@ pub fn run() {
 
     builder
         .setup(|app: &mut tauri::App| {
+             note_db::initialize_database(app.handle())
+                .map_err(|error: String| Box::<dyn std::error::Error>::from(error))?;
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

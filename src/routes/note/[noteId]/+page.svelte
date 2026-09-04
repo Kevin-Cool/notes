@@ -59,7 +59,7 @@
 			content,
 			thumbnail: null,
 			created_at: createdAt || nowIsoString,
-			last_updated_at: nowIsoString,
+			updated_at: nowIsoString,
 		};
 	}
 
@@ -261,7 +261,7 @@
 			lastPreviewContent = existingNote.content;
 			noteName = existingNote.name;
 			createdAt = existingNote.created_at;
-			lastUpdatedAt = existingNote.last_updated_at;
+			lastUpdatedAt = existingNote.updated_at;
 			isNew = false;
 		} else {
 			const nowIsoString: string = new Date().toISOString();
@@ -375,7 +375,7 @@
 			content: currentContent,
 			thumbnail: null,
 			created_at: createdAt || nowIsoString,
-			last_updated_at: nowIsoString,
+			updated_at: nowIsoString,
 		};
 
 		await upsertNote(note);

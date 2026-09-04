@@ -539,6 +539,7 @@
         grid-template-rows: auto minmax(0, 1fr);
         background: var(--color-surface);
         overflow: hidden;
+        user-select: none;
     }
 
     .month-weekdays {
@@ -620,6 +621,7 @@
         font-size: 0.82rem;
         font-weight: 700;
         cursor: pointer;
+        user-select: none;
     }
 
     .day-number:hover {

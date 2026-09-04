@@ -65,8 +65,8 @@
         [...selectableNotes]
             .sort((left: NoteRecord, right: NoteRecord): number => {
                 return (
-                    new Date(right.last_updated_at).getTime() -
-                    new Date(left.last_updated_at).getTime()
+                    new Date(right.updated_at).getTime() -
+                    new Date(left.updated_at).getTime()
                 );
             })
             .slice(0, 5),
@@ -86,8 +86,8 @@
                   })
                   .sort((left: NoteRecord, right: NoteRecord): number => {
                       return (
-                          new Date(right.last_updated_at).getTime() -
-                          new Date(left.last_updated_at).getTime()
+                          new Date(right.updated_at).getTime() -
+                          new Date(left.updated_at).getTime()
                       );
                   })
                   .slice(0, 8),
@@ -135,7 +135,7 @@
 
                 const previewUrl: string = convertFileSrc(previewFilePath);
                 const cacheKey: number = new Date(
-                    note.last_updated_at,
+                    note.updated_at,
                 ).getTime();
 
                 nextPreviewUrls[note.id] = `${previewUrl}?v=${cacheKey}`;
@@ -370,7 +370,7 @@
 
                                         <span class="note-result-date">
                                             {new Date(
-                                                note.last_updated_at,
+                                                note.updated_at,
                                             ).toLocaleString()}
                                         </span>
                                     </div>

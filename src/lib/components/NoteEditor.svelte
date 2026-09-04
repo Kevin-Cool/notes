@@ -1009,6 +1009,10 @@
                     return false;
                 },
                 handleDOMEvents: {
+                    pointerdown: (): boolean => {
+                        handleEditorAreaClick();
+                        return false;
+                    },
                     click: (_view, event): boolean => {
                         const mouseEvent: MouseEvent = event;
                         const target: EventTarget | null = mouseEvent.target;
@@ -1606,15 +1610,6 @@
     <div
         class="editor-shell"
         class:ctrl-link-hover={isModifierPressed && isHoveringLink}
-        onclick={handleEditorAreaClick}
-        onkeydown={(event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                handleEditorAreaClick();
-            }
-        }}
-        role="button"
-        tabindex="0"
     >
         <div bind:this={editorElement} class="editor-host"></div>
     </div>

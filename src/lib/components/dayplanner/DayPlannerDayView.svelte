@@ -265,9 +265,21 @@
         };
     }
 
+    let blockedDragPointerId: number | null = null;
     function openItemContextMenu(event: MouseEvent, item: DayPlanItem): void {
         event.preventDefault();
         event.stopPropagation();
+
+        if (suppressContextMenuForItemId === item.id) {
+            suppressContextMenuForItemId = null;
+            return;
+        }
+
+        if (dragState) {
+            blockedDragPointerId = dragState.pointerId;
+        }
+
+        cancelDrag();
 
         contextMenu = {
             x: event.clientX,
@@ -460,6 +472,10 @@
         event: PointerEvent,
         item: DayPlanItem,
     ): void {
+        if (contextMenu) {
+            return;
+        }
+
         if (event.button !== 0) {
             return;
         }
@@ -486,6 +502,8 @@
                 return;
             }
 
+            closeContextMenu();
+
             dragState.hasDragStarted = true;
             suppressClickForItemId = item.id;
         }, DRAG_HOLD_DELAY_MS);
@@ -503,7 +521,32 @@
         };
     }
 
+    let suppressContextMenuForItemId: string | null = $state(null);
+    let suppressContextMenuTimerId: number | null = null;
+
+    function suppressNextContextMenu(itemId: string): void {
+        suppressContextMenuForItemId = itemId;
+
+        if (suppressContextMenuTimerId !== null) {
+            window.clearTimeout(suppressContextMenuTimerId);
+        }
+
+        suppressContextMenuTimerId = window.setTimeout((): void => {
+            suppressContextMenuForItemId = null;
+            suppressContextMenuTimerId = null;
+        }, 1000);
+    }
+
     function handleWindowPointerMove(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            return;
+        }
+
+        if (contextMenu) {
+            cancelDrag();
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }
@@ -513,6 +556,8 @@
         }
 
         event.preventDefault();
+
+        suppressNextContextMenu(dragState.item.id);
 
         const nextStartMinute: number = getDraggedItemStartMinute(
             event.clientY,
@@ -537,6 +582,11 @@
     }
 
     async function handleWindowPointerUp(event: PointerEvent): Promise<void> {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }
@@ -583,6 +633,11 @@
     }
 
     function handleWindowPointerCancel(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || event.pointerId !== dragState.pointerId) {
             return;
         }

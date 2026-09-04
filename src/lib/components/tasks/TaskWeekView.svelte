@@ -71,6 +71,11 @@
     let dragState: WeekDragState | null = $state(null);
     let suppressedClickTaskId: CalendarTask["id"] | null = $state(null);
 
+    let blockedDragPointerId: number | null = null;
+
+    let suppressContextMenuForTaskId: string | null = $state(null);
+    let suppressContextMenuTimerId: number | null = null;
+
     const hoursInDay: number = 24;
     const minutesInDay: number = 24 * 60;
     const timeAxisWidthPx: number = 52;
@@ -364,11 +369,39 @@
         event.preventDefault();
         event.stopPropagation();
 
+        if (suppressContextMenuForTaskId === task.id) {
+            suppressContextMenuForTaskId = null;
+            return;
+        }
+
+        if (dragState) {
+            blockedDragPointerId = dragState.pointerId;
+
+            if (dragState.timerId !== null) {
+                window.clearTimeout(dragState.timerId);
+            }
+        }
+
+        dragState = null;
+
         onTaskContextMenu?.({
             x: event.clientX,
             y: event.clientY,
             task,
         });
+    }
+
+    function suppressNextContextMenu(taskId: string): void {
+        suppressContextMenuForTaskId = taskId;
+
+        if (suppressContextMenuTimerId !== null) {
+            window.clearTimeout(suppressContextMenuTimerId);
+        }
+
+        suppressContextMenuTimerId = window.setTimeout((): void => {
+            suppressContextMenuForTaskId = null;
+            suppressContextMenuTimerId = null;
+        }, 1000);
     }
 
     function handleTaskPointerDown(
@@ -436,6 +469,10 @@
     }
 
     function handleTaskPointerMove(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            return;
+        }
+
         if (!dragState || dragState.pointerId !== event.pointerId) {
             return;
         }
@@ -445,6 +482,8 @@
         }
 
         event.preventDefault();
+
+        suppressNextContextMenu(dragState.task.id);
 
         const range: TaskDateRange | null = getDragRangeFromPointer(
             event.clientX,
@@ -464,6 +503,11 @@
     }
 
     async function handleTaskPointerUp(event: PointerEvent): Promise<void> {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || dragState.pointerId !== event.pointerId) {
             return;
         }
@@ -501,6 +545,11 @@
     }
 
     function handleTaskPointerCancel(event: PointerEvent): void {
+        if (blockedDragPointerId === event.pointerId) {
+            blockedDragPointerId = null;
+            return;
+        }
+
         if (!dragState || dragState.pointerId !== event.pointerId) {
             return;
         }

@@ -458,6 +458,7 @@
         place-items: center;
 
         color: var(--color-text-muted);
+        user-select: none;
         font-size: 0.9rem;
         text-align: center;
     }

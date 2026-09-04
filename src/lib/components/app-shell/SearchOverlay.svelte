@@ -27,8 +27,8 @@
     const sortedNotes: NoteRecord[] = $derived(
         [...notes].sort(
             (a: NoteRecord, b: NoteRecord): number =>
-                new Date(b.last_updated_at).getTime() -
-                new Date(a.last_updated_at).getTime(),
+                new Date(b.updated_at).getTime() -
+                new Date(a.updated_at).getTime(),
         ),
     );
 
@@ -69,7 +69,7 @@
 
                 const previewUrl: string = convertFileSrc(previewFilePath);
                 const cacheKey: number = new Date(
-                    note.last_updated_at,
+                    note.updated_at,
                 ).getTime();
 
                 nextPreviewUrls[note.id] = `${previewUrl}?v=${cacheKey}`;
@@ -217,7 +217,7 @@
                                     </div>
                                     <div class="search-result-meta">
                                         {new Date(
-                                            note.last_updated_at,
+                                            note.updated_at,
                                         ).toLocaleString()}
                                     </div>
                                 </div>

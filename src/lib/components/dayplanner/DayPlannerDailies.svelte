@@ -593,6 +593,7 @@
         margin: 0;
         color: var(--color-title);
         font-size: 1.1rem;
+        user-select: none;
     }
 
     .list-content {
@@ -747,5 +748,6 @@
         color: var(--color-text-muted);
         padding: 0.9rem;
         cursor: pointer;
+        user-select: none;
     }
 </style>

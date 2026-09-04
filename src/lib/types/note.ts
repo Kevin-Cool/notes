@@ -4,5 +4,5 @@ export type NoteRecord = {
 	content: string;
 	thumbnail: string | null;
 	created_at: string;
-	last_updated_at: string;
+	updated_at: string;
 };

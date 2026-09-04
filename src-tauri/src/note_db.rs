@@ -24,7 +24,7 @@ pub struct NoteRecord {
     pub content: String,
     pub thumbnail: Option<String>,
     pub created_at: String,
-    pub last_updated_at: String,
+    pub updated_at: String,
 }
 
 // Media
@@ -54,6 +54,7 @@ pub struct CalendarTaskRecord {
     pub start: String,
     pub end: String,
     pub color: i32,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -85,6 +86,7 @@ pub struct DayplannerTodoRecord {
     pub color: i32,
     pub completed: bool,
     pub completion_date: Option<String>,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -104,6 +106,7 @@ pub struct DayplannerDailyRecord {
     pub completed: i32,
     pub target: i32,
     pub completion_date: Option<String>,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -123,6 +126,7 @@ pub struct DayPlanItemRecord {
     pub color: i32,
     pub start: String,
     pub end: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,6 +137,38 @@ pub struct UpsertDayPlanItemPayload {
     pub start: String,
     pub end: String,
 }
+// Sync classes
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncEntityType {
+    Note,
+    CalendarTask,
+    DayplannerTodo,
+    DayplannerDaily,
+    DayPlanItem,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SyncOperation {
+    Upsert,
+    Delete,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncStateRecord {
+    pub server_revision: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SyncOutboxRecord {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub operation: String,
+    pub changed_at: String,
+}
+
+
 fn parse_and_validate_iso_datetime(value: &str, field_name: &str) -> Result<String, String> {
     let parsed: chrono::DateTime<chrono::FixedOffset> = chrono::DateTime::parse_from_rfc3339(value)
         .map_err(|error| format!("invalid {field_name} ISO datetime: {error}"))?;
@@ -182,78 +218,409 @@ fn get_thumbnails_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(thumbnails_dir)
 }
 
+pub fn initialize_database(app: &AppHandle) -> Result<(), String> {
+    let mut connection: Connection = open_connection(app)?;
+
+    let mut current_version: i32 = connection
+        .pragma_query_value(
+            None,
+            "user_version",
+            |row: &rusqlite::Row<'_>| row.get(0),
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to read database version: {error}")
+        })?;
+
+    if current_version > DATABASE_VERSION {
+        return Err(format!(
+            "database version {current_version} is newer than supported version {DATABASE_VERSION}"
+        ));
+    }
+
+    if current_version == 0 {
+        if is_legacy_database(&connection)? {
+            // This is your existing pre-migration database.
+            //
+            // Its schema corresponds to what we now call version 1.
+            connection
+                .pragma_update(None, "user_version", 1)
+                .map_err(|error: rusqlite::Error| {
+                    format!("failed to mark legacy database as version 1: {error}")
+                })?;
+
+            current_version = 1;
+        } else if is_database_empty(&connection)? {
+            // Completely fresh installation.
+            create_current_database(&mut connection)?;
+            return Ok(());
+        } else {
+            return Err(
+                "database has an unknown unversioned schema; refusing to migrate automatically"
+                    .to_string(),
+            );
+        }
+    }
+
+    if current_version < 2 {
+        migrate_to_version_2(&mut connection)?;
+        current_version = 2;
+    }
+
+    debug_assert_eq!(current_version, DATABASE_VERSION);
+
+    Ok(())
+}
+
+fn is_database_empty(connection: &Connection) -> Result<bool, String> {
+    let table_count: i64 = connection
+        .query_row(
+            "
+            SELECT COUNT(*)
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name NOT LIKE 'sqlite_%'
+            ",
+            [],
+            |row: &rusqlite::Row<'_>| row.get(0),
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to inspect database tables: {error}")
+        })?;
+
+    Ok(table_count == 0)
+}
+
+fn is_legacy_database(connection: &Connection) -> Result<bool, String> {
+    let notes_table_exists: bool = connection
+        .query_row(
+            "
+            SELECT EXISTS(
+                SELECT 1
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name = 'notes'
+            )
+            ",
+            [],
+            |row: &rusqlite::Row<'_>| row.get(0),
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to inspect legacy notes table: {error}")
+        })?;
+
+    if !notes_table_exists {
+        return Ok(false);
+    }
+
+    let mut statement = connection
+        .prepare("PRAGMA table_info(notes)")
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to inspect notes columns: {error}")
+        })?;
+
+    let column_iterator = statement
+        .query_map([], |row: &rusqlite::Row<'_>| {
+            let column_name: String = row.get(1)?;
+            Ok(column_name)
+        })
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to read notes columns: {error}")
+        })?;
+
+    let mut has_last_updated_at: bool = false;
+    let mut has_updated_at: bool = false;
+
+    for column_result in column_iterator {
+        let column_name: String = column_result
+            .map_err(|error: rusqlite::Error| {
+                format!("failed to read notes column: {error}")
+            })?;
+
+        if column_name == "last_updated_at" {
+            has_last_updated_at = true;
+        }
+
+        if column_name == "updated_at" {
+            has_updated_at = true;
+        }
+    }
+
+    Ok(has_last_updated_at && !has_updated_at)
+}
+
+fn create_current_database(connection: &mut Connection) -> Result<(), String> {
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start database migration 1: {error}")
+        })?;
+
+    transaction
+        .execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS notes (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                thumbnail TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS media (
+                id TEXT PRIMARY KEY,
+                file_name TEXT NOT NULL,
+                original_name TEXT NOT NULL,
+                mime_type TEXT NULL,
+                size_bytes INTEGER NOT NULL,
+                relative_path TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS calendar_tasks (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                description TEXT NULL,
+                start TEXT NOT NULL,
+                end TEXT NOT NULL,
+                color INTEGER NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS dayplanner_todos (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                color INTEGER NOT NULL,
+                completed INTEGER NOT NULL,
+                completion_date TEXT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS dayplanner_dailies (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                orderNr INTEGER NOT NULL,
+                completed INTEGER NOT NULL,
+                target INTEGER NOT NULL,
+                completion_date TEXT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS day_plan_items (
+                id TEXT PRIMARY KEY,
+                title TEXT NULL,
+                color INTEGER NOT NULL,
+                start TEXT NOT NULL,
+                end TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS sync_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                server_revision INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS sync_outbox (
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_id)
+            );
+
+            INSERT OR IGNORE INTO sync_state (
+                id,
+                server_revision
+            )
+            VALUES (1, 0);
+
+            PRAGMA user_version = 2;
+            ",
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to apply database current database schema: {error}")
+        })?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit database current database schema: {error}")
+        })?;
+
+    Ok(())
+}
+
+fn migrate_to_version_2(connection: &mut Connection) -> Result<(), String> {
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start database migration 2: {error}")
+        })?;
+
+    let migration_timestamp: String = chrono::Utc::now().to_rfc3339();
+
+    transaction
+        .execute(
+            "
+            ALTER TABLE notes
+            RENAME COLUMN last_updated_at TO updated_at
+            ",
+            [],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to migrate notes updated_at: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            ALTER TABLE calendar_tasks
+            ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''
+            ",
+            [],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to add calendar_tasks.updated_at: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            ALTER TABLE dayplanner_todos
+            ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''
+            ",
+            [],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to add dayplanner_todos.updated_at: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            ALTER TABLE dayplanner_dailies
+            ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''
+            ",
+            [],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to add dayplanner_dailies.updated_at: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            ALTER TABLE day_plan_items
+            ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''
+            ",
+            [],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to add day_plan_items.updated_at: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            UPDATE calendar_tasks
+            SET updated_at = ?1
+            WHERE updated_at = ''
+            ",
+            params![&migration_timestamp],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to initialize calendar task timestamps: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            UPDATE dayplanner_todos
+            SET updated_at = ?1
+            WHERE updated_at = ''
+            ",
+            params![&migration_timestamp],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to initialize todo timestamps: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            UPDATE dayplanner_dailies
+            SET updated_at = ?1
+            WHERE updated_at = ''
+            ",
+            params![&migration_timestamp],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to initialize daily timestamps: {error}")
+        })?;
+
+    transaction
+        .execute(
+            "
+            UPDATE day_plan_items
+            SET updated_at = ?1
+            WHERE updated_at = ''
+            ",
+            params![&migration_timestamp],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to initialize day plan item timestamps: {error}")
+        })?;
+
+    transaction
+        .execute_batch(
+            "
+            CREATE TABLE sync_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                server_revision INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE TABLE sync_outbox (
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                PRIMARY KEY (entity_type, entity_id)
+            );
+
+            INSERT INTO sync_state (
+                id,
+                server_revision
+            )
+            VALUES (1, 0);
+
+            PRAGMA user_version = 2;
+            ",
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to create sync tables: {error}")
+        })?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit database migration 2: {error}")
+        })?;
+
+    Ok(())
+}
+
+const DATABASE_VERSION: i32 = 2;
 fn open_connection(app: &AppHandle) -> Result<Connection, String> {
     let database_path: PathBuf = get_database_path(app)?;
 
-    let connection: Connection = Connection::open(database_path)
-        .map_err(|error| format!("failed to open database: {error}"))?;
-
-    connection
-        .execute_batch(
-            "
-        CREATE TABLE IF NOT EXISTS notes (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            content TEXT NOT NULL,
-            thumbnail TEXT NULL,
-            created_at TEXT NOT NULL,
-            last_updated_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS media (
-            id TEXT PRIMARY KEY,
-            file_name TEXT NOT NULL,
-            original_name TEXT NOT NULL,
-            mime_type TEXT NULL,
-            size_bytes INTEGER NOT NULL,
-            relative_path TEXT NOT NULL,
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS calendar_tasks (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            description TEXT NULL,
-            start TEXT NOT NULL,
-            end TEXT NOT NULL,
-            color INTEGER NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS app_settings (
-            key TEXT PRIMARY KEY NOT NULL,
-            value TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS dayplanner_todos (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            color INTEGER NOT NULL,
-            completed INTEGER NOT NULL,
-            completion_date TEXT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS dayplanner_dailies (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            orderNr INTEGER NOT NULL,
-            completed INTEGER NOT NULL,
-            target INTEGER NOT NULL,
-            completion_date TEXT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS day_plan_items (
-            id TEXT PRIMARY KEY,
-            title TEXT NULL,
-            color INTEGER NOT NULL,
-            start TEXT NOT NULL,
-            end TEXT NOT NULL
-        );
-        ",
-        )
-        .map_err(|error| format!("failed to initialize database: {error}"))?;
-
-    Ok(connection)
+    Connection::open(database_path)
+        .map_err(|error: rusqlite::Error| format!("failed to open database: {error}"))
 }
 
 #[tauri::command]
@@ -263,7 +630,7 @@ pub fn get_note_by_id(app: AppHandle, note_id: String) -> Result<Option<NoteReco
     let mut statement = connection
         .prepare(
             "
-            SELECT id, name, content, thumbnail, created_at, last_updated_at
+            SELECT id, name, content, thumbnail, created_at, updated_at
             FROM notes
             WHERE id = ?1
             ",
@@ -295,9 +662,9 @@ pub fn get_note_by_id(app: AppHandle, note_id: String) -> Result<Option<NoteReco
             created_at: row
                 .get(4)
                 .map_err(|error| format!("failed to read created_at: {error}"))?,
-            last_updated_at: row
+            updated_at: row
                 .get(5)
-                .map_err(|error| format!("failed to read last_updated_at: {error}"))?,
+                .map_err(|error| format!("failed to read updated_at: {error}"))?,
         };
 
         return Ok(Some(note));
@@ -308,7 +675,13 @@ pub fn get_note_by_id(app: AppHandle, note_id: String) -> Result<Option<NoteReco
 
 #[tauri::command]
 pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
+
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start note transaction: {error}")
+        })?;
 
     let now: String = chrono::Utc::now().to_rfc3339();
 
@@ -318,7 +691,7 @@ pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
         note.created_at
     };
 
-    connection
+    transaction
         .execute(
             "
             INSERT INTO notes (
@@ -327,14 +700,14 @@ pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
                 content,
                 thumbnail,
                 created_at,
-                last_updated_at
+                updated_at
             )
             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 content = excluded.content,
                 thumbnail = excluded.thumbnail,
-                last_updated_at = excluded.last_updated_at
+                updated_at = excluded.updated_at
             ",
             params![
                 note.id,
@@ -347,14 +720,36 @@ pub fn upsert_note(app: AppHandle, note: NoteRecord) -> Result<(), String> {
         )
         .map_err(|error| format!("failed to upsert note: {error}"))?;
 
+        
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::Note,
+        &note.id,
+        SyncOperation::Upsert,
+        &now,
+    )?;
+    
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit note transaction: {error}")
+        })?;
+
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_note(app: AppHandle, note_id: String) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
 
-    let deleted_rows: usize = connection
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start note delete transaction: {error}")
+        })?;
+
+    let deleted_rows: usize = transaction
         .execute(
             "
             DELETE FROM notes
@@ -377,6 +772,22 @@ pub fn delete_note(app: AppHandle, note_id: String) -> Result<(), String> {
         fs::remove_file(&preview_file_path)
             .map_err(|error| format!("failed to delete note thumbnail: {error}"))?;
     }
+
+    let changed_at: String = chrono::Utc::now().to_rfc3339();
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::Note,
+        &note_id,
+        SyncOperation::Delete,
+        &changed_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit note delete: {error}")
+        })?;
 
     Ok(())
 }
@@ -551,9 +962,9 @@ pub fn get_latest_note(app: AppHandle) -> Result<Option<NoteRecord>, String> {
     let mut statement = connection
         .prepare(
             "
-            SELECT id, name, content, thumbnail, created_at, last_updated_at
+            SELECT id, name, content, thumbnail, created_at, updated_at
             FROM notes
-            ORDER BY datetime(last_updated_at) DESC
+            ORDER BY datetime(updated_at) DESC
             LIMIT 1
             ",
         )
@@ -573,7 +984,7 @@ pub fn get_latest_note(app: AppHandle) -> Result<Option<NoteRecord>, String> {
             content: row.get(2).map_err(|e| e.to_string())?,
             thumbnail: row.get(3).map_err(|e| e.to_string())?,
             created_at: row.get(4).map_err(|e| e.to_string())?,
-            last_updated_at: row.get(5).map_err(|e| e.to_string())?,
+            updated_at: row.get(5).map_err(|e| e.to_string())?,
         }));
     }
 
@@ -587,9 +998,9 @@ pub fn get_all_notes(app: AppHandle) -> Result<Vec<NoteRecord>, String> {
     let mut statement = connection
         .prepare(
             "
-            SELECT id, name, content, thumbnail, created_at, last_updated_at
+            SELECT id, name, content, thumbnail, created_at, updated_at
             FROM notes
-            ORDER BY last_updated_at DESC
+            ORDER BY updated_at DESC
             ",
         )
         .map_err(|error| format!("failed to prepare get_all_notes: {error}"))?;
@@ -602,7 +1013,7 @@ pub fn get_all_notes(app: AppHandle) -> Result<Vec<NoteRecord>, String> {
                 content: row.get(2)?,
                 thumbnail: row.get(3)?,
                 created_at: row.get(4)?,
-                last_updated_at: row.get(5)?,
+                updated_at: row.get(5)?,
             };
 
             Ok(note)
@@ -737,7 +1148,7 @@ pub fn get_calendar_task_by_id(
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, description, start, end, color
+            SELECT id, title, description, start, end, color, updated_at
             FROM calendar_tasks
             WHERE id = ?1
             ",
@@ -772,6 +1183,9 @@ pub fn get_calendar_task_by_id(
             color: row
                 .get(5)
                 .map_err(|error| format!("failed to read color: {error}"))?,
+            updated_at: row
+                .get(6)
+                .map_err(|error| format!("failed to read updated_at: {error}"))?,
         };
 
         return Ok(Some(task));
@@ -787,7 +1201,7 @@ pub fn get_all_calendar_tasks(app: AppHandle) -> Result<Vec<CalendarTaskRecord>,
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, description, start, end, color
+            SELECT id, title, description, start, end, color, updated_at
             FROM calendar_tasks
             ORDER BY datetime(start) ASC
             ",
@@ -803,6 +1217,7 @@ pub fn get_all_calendar_tasks(app: AppHandle) -> Result<Vec<CalendarTaskRecord>,
                 start: row.get(3)?,
                 end: row.get(4)?,
                 color: row.get(5)?,
+                updated_at: row.get(6)?,
             };
 
             Ok(task)
@@ -848,7 +1263,7 @@ pub fn get_calendar_tasks_between_dates(
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, description, start, end, color
+            SELECT id, title, description, start, end, color, updated_at
             FROM calendar_tasks
             WHERE datetime(start) < datetime(?2)
               AND datetime(end) > datetime(?1)
@@ -868,6 +1283,7 @@ pub fn get_calendar_tasks_between_dates(
                     start: row.get(3)?,
                     end: row.get(4)?,
                     color: row.get(5)?,
+                    updated_at: row.get(6)?,
                 };
 
                 Ok(task)
@@ -892,7 +1308,13 @@ pub fn upsert_calendar_task(
     app: AppHandle,
     task: UpsertCalendarTaskPayload,
 ) -> Result<CalendarTaskRecord, String> {
-    let connection: Connection = open_connection(&app)?;
+   let mut connection: Connection = open_connection(&app)?;
+
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start calendar task transaction: {error}")
+        })?;
 
     let task_id: String = match task.id {
         Some(value) if !value.trim().is_empty() => value,
@@ -914,6 +1336,8 @@ pub fn upsert_calendar_task(
         return Err("task end must be after task start".to_string());
     }
 
+    let updated_at: String = chrono::Utc::now().to_rfc3339();
+
     let calendar_task: CalendarTaskRecord = CalendarTaskRecord {
         id: task_id,
         title: task.title,
@@ -921,9 +1345,10 @@ pub fn upsert_calendar_task(
         start: normalized_start,
         end: normalized_end,
         color: task.color,
+        updated_at: updated_at.clone(),
     };
 
-    connection
+    transaction
         .execute(
             "
             INSERT INTO calendar_tasks (
@@ -932,15 +1357,17 @@ pub fn upsert_calendar_task(
                 description,
                 start,
                 end,
-                color
+                color,
+                updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 description = excluded.description,
                 start = excluded.start,
                 end = excluded.end,
-                color = excluded.color
+                color = excluded.color,
+                updated_at = excluded.updated_at
             ",
             params![
                 calendar_task.id,
@@ -948,19 +1375,42 @@ pub fn upsert_calendar_task(
                 calendar_task.description,
                 calendar_task.start,
                 calendar_task.end,
-                calendar_task.color
+                calendar_task.color,
+                calendar_task.updated_at,
             ],
         )
         .map_err(|error| format!("failed to upsert calendar task: {error}"))?;
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::CalendarTask,
+        &calendar_task.id,
+        SyncOperation::Upsert,
+        &updated_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit note transaction: {error}")
+        })?;
+
 
     Ok(calendar_task)
 }
 
 #[tauri::command]
 pub fn delete_calendar_task(app: AppHandle, task_id: String) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+     let mut connection: Connection = open_connection(&app)?;
 
-    let deleted_rows: usize = connection
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start calendar task delete transaction: {error}")
+        })?;
+
+
+    let deleted_rows: usize = transaction
         .execute(
             "
             DELETE FROM calendar_tasks
@@ -973,6 +1423,23 @@ pub fn delete_calendar_task(app: AppHandle, task_id: String) -> Result<(), Strin
     if deleted_rows == 0 {
         return Err("calendar task not found".to_string());
     }
+    
+    let changed_at: String = chrono::Utc::now().to_rfc3339();
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::CalendarTask,
+        &task_id,
+        SyncOperation::Delete,
+        &changed_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit calendar task delete: {error}")
+        })?;
+
 
     Ok(())
 }
@@ -1103,7 +1570,7 @@ pub fn get_all_dayplanner_todos(app: AppHandle) -> Result<Vec<DayplannerTodoReco
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, color, completed, completion_date
+            SELECT id, title, color, completed, completion_date, updated_at
             FROM dayplanner_todos
             ORDER BY rowid ASC
             ",
@@ -1120,6 +1587,7 @@ pub fn get_all_dayplanner_todos(app: AppHandle) -> Result<Vec<DayplannerTodoReco
                 color: row.get(2)?,
                 completed: completed_value != 0,
                 completion_date: row.get(4)?,
+                updated_at: row.get(5)?,
             };
 
             Ok(todo)
@@ -1211,7 +1679,13 @@ pub fn upsert_dayplanner_todo(
     app: AppHandle,
     todo: UpsertDayplannerTodoPayload,
 ) -> Result<DayplannerTodoRecord, String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
+
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start dayplanner todo transaction: {error}")
+        })?;
 
     let todo_id: String = match todo.id {
         Some(value) if !value.trim().is_empty() => value,
@@ -1236,15 +1710,18 @@ pub fn upsert_dayplanner_todo(
         None
     };
 
+    let updated_at: String = chrono::Utc::now().to_rfc3339();
+
     let dayplanner_todo: DayplannerTodoRecord = DayplannerTodoRecord {
         id: todo_id,
         title,
         color: todo.color,
         completed: todo.completed,
         completion_date,
+        updated_at: updated_at.clone(),
     };
 
-    connection
+    transaction
         .execute(
             "
             INSERT INTO dayplanner_todos (
@@ -1252,33 +1729,58 @@ pub fn upsert_dayplanner_todo(
                 title,
                 color,
                 completed,
-                completion_date
+                completion_date,
+                updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 color = excluded.color,
                 completed = excluded.completed,
-                completion_date = excluded.completion_date
+                completion_date = excluded.completion_date,
+                updated_at = excluded.updated_at
             ",
             params![
                 dayplanner_todo.id,
                 dayplanner_todo.title,
                 dayplanner_todo.color,
                 if dayplanner_todo.completed { 1 } else { 0 },
-                dayplanner_todo.completion_date
+                dayplanner_todo.completion_date,
+                dayplanner_todo.updated_at
             ],
         )
         .map_err(|error| format!("failed to upsert dayplanner todo: {error}"))?;
 
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayplannerTodo,
+        &dayplanner_todo.id,
+        SyncOperation::Upsert,
+        &updated_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit note transaction: {error}")
+        })?;
+
+        
     Ok(dayplanner_todo)
 }
 
 #[tauri::command]
 pub fn delete_dayplanner_todo(app: AppHandle, todo_id: String) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
 
-    let deleted_rows: usize = connection
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start day planner todo delete transaction: {error}")
+        })?;
+
+
+    let deleted_rows: usize = transaction
         .execute(
             "
             DELETE FROM dayplanner_todos
@@ -1292,6 +1794,22 @@ pub fn delete_dayplanner_todo(app: AppHandle, todo_id: String) -> Result<(), Str
         return Err("dayplanner todo not found".to_string());
     }
 
+    let changed_at: String = chrono::Utc::now().to_rfc3339();
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayplannerTodo,
+        &todo_id,
+        SyncOperation::Delete,
+        &changed_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit day planner todo delete: {error}")
+        })?;
+
     Ok(())
 }
 
@@ -1304,7 +1822,7 @@ pub fn get_all_dayplanner_dailies(app: AppHandle) -> Result<Vec<DayplannerDailyR
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, orderNr, target, completed, completion_date
+            SELECT id, title, orderNr, target, completed, completion_date, updated_at
             FROM dayplanner_dailies
             ORDER BY rowid ASC
             ",
@@ -1320,6 +1838,7 @@ pub fn get_all_dayplanner_dailies(app: AppHandle) -> Result<Vec<DayplannerDailyR
                 target: row.get(3)?,
                 completed: row.get(4)?,
                 completion_date: row.get(5)?,
+                updated_at: row.get(6)?,
             };
 
             Ok(daily)
@@ -1415,7 +1934,14 @@ pub fn upsert_dayplanner_daily(
     app: AppHandle,
     daily: UpsertDayplannerDailyPayload,
 ) -> Result<DayplannerDailyRecord, String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
+
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start dayplanner daily transaction: {error}")
+        })?;
+
 
     let daily_id: String = match daily.id {
         Some(value) if !value.trim().is_empty() => value,
@@ -1442,6 +1968,8 @@ pub fn upsert_dayplanner_daily(
         None
     };
 
+    let updated_at: String = chrono::Utc::now().to_rfc3339();
+
     let dayplanner_daily: DayplannerDailyRecord = DayplannerDailyRecord {
         id: daily_id,
         title,
@@ -1449,9 +1977,10 @@ pub fn upsert_dayplanner_daily(
         completed: daily.completed,
         target: daily.target,
         completion_date,
+        updated_at: updated_at.clone(),
     };
 
-    connection
+    transaction
         .execute(
             "
             INSERT INTO dayplanner_dailies (
@@ -1460,15 +1989,17 @@ pub fn upsert_dayplanner_daily(
                 orderNr,
                 completed,
                 target,
-                completion_date
+                completion_date,
+                updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 orderNr = excluded.orderNr,
                 completed = excluded.completed,
                 target = excluded.target,
-                completion_date = excluded.completion_date
+                completion_date = excluded.completion_date,
+                updated_at = excluded.updated_at
             ",
             params![
                 dayplanner_daily.id,
@@ -1476,19 +2007,41 @@ pub fn upsert_dayplanner_daily(
                 dayplanner_daily.orderNr,
                 dayplanner_daily.completed,
                 dayplanner_daily.target,
-                dayplanner_daily.completion_date
+                dayplanner_daily.completion_date,
+                dayplanner_daily.updated_at
             ],
         )
         .map_err(|error| format!("failed to upsert dayplanner dailies: {error}"))?;
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayplannerDaily,
+        &dayplanner_daily.id,
+        SyncOperation::Upsert,
+        &updated_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit calendar task transaction: {error}")
+        })?;
 
     Ok(dayplanner_daily)
 }
 
 #[tauri::command]
 pub fn delete_dayplanner_daily(app: AppHandle, daily_id: String) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
 
-    let deleted_rows: usize = connection
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start dayplanner daily delete transaction: {error}")
+        })?;
+
+
+    let deleted_rows: usize = transaction
         .execute(
             "
             DELETE FROM dayplanner_dailies
@@ -1501,6 +2054,22 @@ pub fn delete_dayplanner_daily(app: AppHandle, daily_id: String) -> Result<(), S
     if deleted_rows == 0 {
         return Err("dayplanner daily not found".to_string());
     }
+
+    let changed_at: String = chrono::Utc::now().to_rfc3339();
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayplannerDaily,
+        &daily_id,
+        SyncOperation::Delete,
+        &changed_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit dayplanner daily delete: {error}")
+        })?;
 
     Ok(())
 }
@@ -1531,7 +2100,7 @@ pub fn get_day_plan_items_for_day(
     let mut statement = connection
         .prepare(
             "
-            SELECT id, title, color, start, end
+            SELECT id, title, color, start, end, updated_at
             FROM day_plan_items
             WHERE datetime(start) < datetime(?2)
               AND datetime(end) > datetime(?1)
@@ -1548,6 +2117,7 @@ pub fn get_day_plan_items_for_day(
                 color: row.get(2)?,
                 start: row.get(3)?,
                 end: row.get(4)?,
+                updated_at: row.get(5)?,
             };
 
             Ok(item)
@@ -1571,7 +2141,13 @@ pub fn upsert_day_plan_item(
     app: AppHandle,
     item: UpsertDayPlanItemPayload,
 ) -> Result<DayPlanItemRecord, String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
+
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start calendar task transaction: {error}")
+        })?;
 
     let item_id: String = match item.id {
         Some(value) if !value.trim().is_empty() => value,
@@ -1597,6 +2173,8 @@ pub fn upsert_day_plan_item(
     if parsed_end <= parsed_start {
         return Err("day plan item end must be after day plan item start".to_string());
     }
+    
+    let updated_at: String = chrono::Utc::now().to_rfc3339();
 
     let day_plan_item: DayPlanItemRecord = DayPlanItemRecord {
         id: item_id,
@@ -1604,9 +2182,10 @@ pub fn upsert_day_plan_item(
         color: item.color,
         start: normalized_start,
         end: normalized_end,
+        updated_at: updated_at.clone(),
     };
 
-    connection
+    transaction
         .execute(
             "
             INSERT INTO day_plan_items (
@@ -1614,33 +2193,57 @@ pub fn upsert_day_plan_item(
                 title,
                 color,
                 start,
-                end
+                end,
+                updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 color = excluded.color,
                 start = excluded.start,
-                end = excluded.end
+                end = excluded.end,
+                updated_at = excluded.updated_at
             ",
             params![
                 day_plan_item.id,
                 day_plan_item.title,
                 day_plan_item.color,
                 day_plan_item.start,
-                day_plan_item.end
+                day_plan_item.end,
+                day_plan_item.updated_at
             ],
         )
         .map_err(|error| format!("failed to upsert day plan item: {error}"))?;
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayPlanItem,
+        &day_plan_item.id,
+        SyncOperation::Upsert,
+        &updated_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit calendar task transaction: {error}")
+        })?;
 
     Ok(day_plan_item)
 }
 
 #[tauri::command]
 pub fn delete_day_plan_item(app: AppHandle, item_id: String) -> Result<(), String> {
-    let connection: Connection = open_connection(&app)?;
+    let mut connection: Connection = open_connection(&app)?;
 
-    let deleted_rows: usize = connection
+    let transaction: rusqlite::Transaction<'_> = connection
+        .transaction()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to start day plan item delete transaction: {error}")
+        })?;
+
+
+    let deleted_rows: usize = transaction
         .execute(
             "
             DELETE FROM day_plan_items
@@ -1654,5 +2257,72 @@ pub fn delete_day_plan_item(app: AppHandle, item_id: String) -> Result<(), Strin
         return Err("day plan item not found".to_string());
     }
 
+    let changed_at: String = chrono::Utc::now().to_rfc3339();
+
+    queue_sync_change(
+        &transaction,
+        SyncEntityType::DayPlanItem,
+        &item_id,
+        SyncOperation::Delete,
+        &changed_at,
+    )?;
+
+    transaction
+        .commit()
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to commit day plan item delete: {error}")
+        })?;
+
+
     Ok(())
 }
+
+fn queue_sync_change(
+    transaction: &rusqlite::Transaction<'_>,
+    entity_type: SyncEntityType,
+    entity_id: &str,
+    operation: SyncOperation,
+    changed_at: &str,
+) -> Result<(), String> {
+    let entity_type_value: String = match entity_type {
+        SyncEntityType::Note => "note".to_string(),
+        SyncEntityType::CalendarTask => "calendar_task".to_string(),
+        SyncEntityType::DayplannerTodo => "dayplanner_todo".to_string(),
+        SyncEntityType::DayplannerDaily => "dayplanner_daily".to_string(),
+        SyncEntityType::DayPlanItem => "day_plan_item".to_string(),
+    };
+
+    let operation_value: String = match operation {
+        SyncOperation::Upsert => "upsert".to_string(),
+        SyncOperation::Delete => "delete".to_string(),
+    };
+
+    transaction
+        .execute(
+            "
+            INSERT INTO sync_outbox (
+                entity_type,
+                entity_id,
+                operation,
+                changed_at
+            )
+            VALUES (?1, ?2, ?3, ?4)
+
+            ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                operation = excluded.operation,
+                changed_at = excluded.changed_at
+            ",
+            params![
+                entity_type_value,
+                entity_id,
+                operation_value,
+                changed_at
+            ],
+        )
+        .map_err(|error: rusqlite::Error| {
+            format!("failed to queue sync change: {error}")
+        })?;
+
+    Ok(())
+}
+

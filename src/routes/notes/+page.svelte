@@ -276,7 +276,7 @@
 
         return noteList.filter((note: NoteRecord): boolean => {
             const updatedAtMs: number = new Date(
-                note.last_updated_at,
+                note.updated_at,
             ).getTime();
             return nowMs - updatedAtMs < RECENT_NOTE_WINDOW_MS;
         });
@@ -335,7 +335,7 @@
             }
 
             const previewUrl: string = convertFileSrc(previewFilePath);
-            const cacheKey: number = new Date(note.last_updated_at).getTime();
+            const cacheKey: number = new Date(note.updated_at).getTime();
 
             notePreviewUrls = {
                 ...notePreviewUrls,
@@ -364,7 +364,7 @@
                 if (previewFilePath) {
                     const previewUrl: string = convertFileSrc(previewFilePath);
                     const cacheKey: number = new Date(
-                        note.last_updated_at,
+                        note.updated_at,
                     ).getTime();
 
                     nextPreviewUrls[note.id] = `${previewUrl}?v=${cacheKey}`;
@@ -385,8 +385,8 @@
     const sortedNotes: NoteRecord[] = $derived(
         [...notes].sort(
             (a: NoteRecord, b: NoteRecord): number =>
-                new Date(b.last_updated_at).getTime() -
-                new Date(a.last_updated_at).getTime(),
+                new Date(b.updated_at).getTime() -
+                new Date(a.updated_at).getTime(),
         ),
     );
 
@@ -999,7 +999,7 @@
     .note-tile {
         -webkit-tap-highlight-color: transparent;
     }
-    
+
     .page-title-row {
         display: flex;
         align-items: center;

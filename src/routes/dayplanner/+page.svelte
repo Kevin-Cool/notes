@@ -3,7 +3,6 @@
     import DayPlannerDayView from "$lib/components/dayplanner/DayPlannerDayView.svelte";
     import DayPlannerTodos from "$lib/components/dayplanner/DayPlannerTodos.svelte";
     import DayPlannerDailies from "$lib/components/dayplanner/DayPlannerDailies.svelte";
-
 </script>
 
 <div class="dayplanner-page">
@@ -12,16 +11,20 @@
     <main class="dayplanner-main">
         <section class="dayplanner-card dayplanner-day-card">
             <div class="dayplanner-card-header">
-                <h2>My Day</h2>
+                <h2 class="dayplanner-card-title">My Day</h2>
             </div>
 
             <DayPlannerDayView />
         </section>
 
         <aside class="dayplanner-side">
-            <DayPlannerTodos />
+            <div class="dayplanner-side-card">
+                <DayPlannerTodos />
+            </div>
 
-            <DayPlannerDailies />
+            <div class="dayplanner-side-card">
+                <DayPlannerDailies />
+            </div>
         </aside>
     </main>
 </div>
@@ -88,6 +91,10 @@
         background: var(--color-surface-strong);
     }
 
+    .dayplanner-card-title{
+        user-select: none;
+    }
+
     .dayplanner-card-header h2 {
         margin: 0;
         color: var(--color-title);
@@ -103,13 +110,58 @@
         gap: 0.9rem;
     }
 
-    .dayplanner-side > :global(*) {
+    .dayplanner-side-card {
         min-height: 0;
         overflow: hidden;
-
         border: 1px solid var(--color-border);
         border-radius: 1.1rem;
         background: var(--color-surface);
         box-shadow: var(--shadow-soft);
+    }
+
+    /* Mobile portrait */
+    @media (max-width: 48rem) and (orientation: portrait) {
+        .dayplanner-main {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .dayplanner-day-card {
+            min-height: 65dvh;
+        }
+
+        .dayplanner-side {
+            grid-template-rows: auto auto;
+            overflow: visible;
+        }
+
+        .dayplanner-side-card {
+            min-height: 15rem;
+        }
+    }
+
+    /* Mobile landscape */
+    @media (max-height: 48rem) and (orientation: landscape) {
+        .dayplanner-main {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: minmax(0, 1fr);
+            overflow: hidden;
+        }
+
+        .dayplanner-day-card {
+            min-height: 0;
+            height: 100%;
+        }
+
+        .dayplanner-side {
+            grid-template-rows: minmax(15rem, 1fr) minmax(15rem, 1fr);
+            overflow-y: auto;
+        }
+
+        .dayplanner-side > :global(*) {
+            min-height: 15rem;
+        }
     }
 </style>

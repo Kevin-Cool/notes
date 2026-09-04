@@ -14,6 +14,8 @@
     import type { TodoContextMenuState } from "$lib/types/dayplanner/todo-context-menu";
     import { TodoColor } from "$lib/types/dayplanner/todo-color";
 
+    import { isDesktopPlatform } from "$lib/device/platform";
+
     let todos: DayplannerTodo[] = $state([]);
     let contextMenu: TodoContextMenuState | null = $state(null);
 
@@ -231,7 +233,11 @@
         {/each}
 
         {#if todos.length === 0}
-            <div class="empty-todos">Right-click to create a todo.</div>
+            {#if isDesktopPlatform}
+                <div class="empty-todos">Right-click to create a todo.</div>
+            {:else}
+                <div class="empty-todos">Press and hold to create a todo.</div>
+            {/if}
         {/if}
     </div>
 </section>
@@ -270,6 +276,7 @@
         margin: 0;
         color: var(--color-title);
         font-size: 1.1rem;
+        cursor: pointer;
     }
 
     .list-content {
@@ -387,6 +394,7 @@
         color: var(--color-text-muted);
         font-size: 0.9rem;
         text-align: center;
+        user-select: none;
     }
 
     .todo-color-1 {

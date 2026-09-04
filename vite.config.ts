@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
     const host: string | undefined = process.env.TAURI_DEV_HOST;
 
     return {
@@ -11,13 +11,18 @@ export default defineConfig(({ mode }) => {
             host: host ?? false,
             port: 5173,
             strictPort: true,
+
             hmr: host
                 ? {
                       protocol: 'ws',
                       host: host,
-                      port: 5174
+                      port: 5174,
                   }
-                : undefined
+                : undefined,
+
+            watch: {
+                ignored: ['**/src-tauri/**']
+            }
         }
     };
 });

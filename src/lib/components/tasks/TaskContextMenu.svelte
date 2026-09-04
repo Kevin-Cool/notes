@@ -180,6 +180,7 @@
         border-radius: var(--radius-float);
         background: var(--color-surface);
         box-shadow: var(--shadow-float);
+        user-select: none;
     }
 
     .context-menu-item {
